@@ -487,3 +487,98 @@ tr[data-stage="Final Review"] td, tr[data-stage="Final Review"] td.sticky {
 tr[data-stage] td.sticky {
     background-color: inherit !important;
 }
+/* Tooltip Fix */
+[data-theme="light"] .tooltip-content {
+    background-color: black !important;
+    color: white !important;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.875rem;
+}
+
+[data-theme="dark"] .tooltip-content {
+    background-color: white !important;
+    color: black !important;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.875rem;
+}
+/* Fix for Sticky Columns in Light Mode */
+[data-theme="light"] tr[data-stage="CTC"] td,
+[data-theme="light"] tr[data-stage="CTC"] td.sticky {
+    background-color: #93C47D !important;
+    color: black !important;
+}
+
+[data-theme="light"] tr[data-stage="On Hold"] td,
+[data-theme="light"] tr[data-stage="On Hold"] td.sticky {
+    background-color: #DE3838 !important;
+    color: white !important;
+}
+
+[data-theme="light"] tr[data-stage="Final Review"] td,
+[data-theme="light"] tr[data-stage="Final Review"] td.sticky {
+    background-color: #E6874C !important;
+    color: black !important;
+}
+
+[data-theme="dark"] tr[data-stage="CTC"] td,
+[data-theme="dark"] tr[data-stage="CTC"] td.sticky {
+    background-color: #6aa84f !important;
+    color: white !important;
+}
+
+[data-theme="dark"] tr[data-stage="On Hold"] td,
+[data-theme="dark"] tr[data-stage="On Hold"] td.sticky {
+    background-color: #cc0000 !important;
+    color: white !important;
+}
+
+[data-theme="dark"] tr[data-stage="Final Review"] td,
+[data-theme="dark"] tr[data-stage="Final Review"] td.sticky {
+    background-color: #d67f35 !important;
+    color: white !important;
+}
+
+/* Ensure Sticky Columns Inherit Row Color */
+tr[data-stage] td.sticky {
+    background-color: inherit !important;
+}
+/* Ensure tooltip appears above all table elements */
+.tooltip-content {
+    position: absolute;
+    z-index: 9999;
+    background-color: var(--tooltip-bg, black);
+    color: var(--tooltip-text, white);
+    padding: 6px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    transform: translateY(-100%) translateX(-50%);
+    top: 0;
+    left: 50%;
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: none; /* Prevents blocking interactions */
+  }
+  
+
+/* Fix for when tooltip appears under previous row */
+.table-container {
+    position: relative;
+    z-index: 1;
+}
+
+.table-container table {
+    position: relative;
+    z-index: 2;
+}
+
+/* Make sure sticky table cells do not override the tooltip */
+th.sticky,
+td.sticky {
+    z-index: 5;
+}
+td {
+    position: relative;
+    overflow: visible; /* Ensure tooltip is not clipped */
+}
+

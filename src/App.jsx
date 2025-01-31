@@ -973,7 +973,11 @@ const LoanDashboard = () => {
                 </tr>
               ) : (
                 paginatedData.map((row) => (
-                  <tr key={row.id} data-stage={row.stage} className="hover:opacity-90">
+                  <tr
+                    key={row.id}
+                    data-stage={row.stage}
+                    className="hover:opacity-90"
+                  >
                     {/* Fix the first three columns */}
                     <td className="sticky left-0 z-10 bg-custom px-6 py-4 text-custom border border-custom min-w-[200px]">
                       <a
@@ -1000,21 +1004,20 @@ const LoanDashboard = () => {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
-                              <button
-                                className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
-                                onClick={() => {
-                                  setEditingData(row);
-                                  setIsEditModalOpen(true);
-                                }}
-                              >
+                              <button className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors">
                                 <Pencil className="w-4 h-4 text-white" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent
+                              className="tooltip-content"
+                              side="top"
+                              align="center"
+                            >
                               <p>Edit</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
@@ -1025,12 +1028,12 @@ const LoanDashboard = () => {
                                 )}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors inline-flex items-center justify-center"
+                                className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors inline-flex items-center relative justify-center"
                               >
                                 <Eye className="w-4 h-4 text-white" />
                               </a>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent side="top" sideOffset={4}>
                               <p>View in LFG</p>
                             </TooltipContent>
                           </Tooltip>
