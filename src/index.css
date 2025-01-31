@@ -456,29 +456,34 @@ tr[style] {
     background-color: var(--bg-color) !important;
 }
 
-/* Apply stage color to entire row, including sticky cells */
-tr[data-stage="CTC"] td {
+/* Fix for stage-based background colors in sticky columns */
+tr[data-stage="CTC"] td, tr[data-stage="CTC"] td.sticky {
     background-color: #93C47D !important;
 }
-tr[data-stage="On Hold"] td {
+tr[data-stage="On Hold"] td, tr[data-stage="On Hold"] td.sticky {
     background-color: #DE3838 !important;
 }
-tr[data-stage="Final Review"] td {
+tr[data-stage="Final Review"] td, tr[data-stage="Final Review"] td.sticky {
     background-color: #E6874C !important;
 }
 
 /* Ensure dark mode works */
-[data-theme="dark"] tr[data-stage="CTC"] td {
+[data-theme="dark"] tr[data-stage="CTC"] td, 
+[data-theme="dark"] tr[data-stage="CTC"] td.sticky {
     background-color: #6aa84f !important;
 }
-[data-theme="dark"] tr[data-stage="On Hold"] td {
+
+[data-theme="dark"] tr[data-stage="On Hold"] td, 
+[data-theme="dark"] tr[data-stage="On Hold"] td.sticky {
     background-color: #cc0000 !important;
 }
-[data-theme="dark"] tr[data-stage="Final Review"] td {
+
+[data-theme="dark"] tr[data-stage="Final Review"] td, 
+[data-theme="dark"] tr[data-stage="Final Review"] td.sticky {
     background-color: #d67f35 !important;
 }
 
-/* Remove unwanted overrides */
-tr[data-stage] td {
-    background-color: unset;
+/* Ensure no overriding issues */
+tr[data-stage] td.sticky {
+    background-color: inherit !important;
 }
