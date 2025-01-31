@@ -1,0 +1,484 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme Variables */
+:root {
+    --bg-color: white;
+    --text-color: #1f2937;
+    --border-color: #e5e7eb;
+    --hover-bg: #f3f4f6;
+    --table-header-bg: #f9fafb;
+    --table-row-hover-bg: #f1f5f9;
+    --table-bg: white;
+    --input-bg: white;
+    --button-hover: #e5e7eb;
+    --icon-button-bg: #f3f4f6;
+    --icon-button-hover: #4f46e5;
+    --icon-button-text: #1f2937;
+    --icon-button-text-hover: white;
+}
+
+[data-theme="dark"] {
+    --bg-color: #0a0c10;
+    --text-color: #d1d5db;
+    --border-color: #30363d;
+    --hover-bg: #21262d;
+    --table-header-bg: #353a41;
+    --table-header-border: #afb3b8;
+    --table-row-hover-bg: #1f2937;
+    --table-bg: #0d1117;
+    --input-bg: #161b22;
+    --button-hover: #21262d;
+    --icon-button-bg: rgba(31, 41, 55, 0.5);
+    --icon-button-hover: #4f46e5;
+    --icon-button-text: white;
+    --icon-button-text-hover: white;
+}
+
+/* Base Styles */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Input Styles */
+.input-custom,
+select,
+.react-datepicker__input-container input {
+    width: 100%;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+/* Select Specific Styles */
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+}
+
+/* Theme-specific Input Styles */
+[data-theme="light"] {
+
+    .input-custom,
+    select,
+    .react-datepicker__input-container input {
+        background-color: white;
+        color: #1f2937;
+        border-color: #e5e7eb;
+
+        &:hover {
+            border-color: #000000;
+        }
+
+        &:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 1px #000000;
+        }
+    }
+
+    option {
+        background-color: white;
+        color: #1f2937;
+    }
+}
+
+[data-theme="dark"] {
+
+    .input-custom,
+    select,
+    .react-datepicker__input-container input {
+        background-color: #161b22;
+        color: #d1d5db;
+        border-color: #30363d;
+
+        &:hover {
+            border-color: #ffffff;
+        }
+
+        &:focus {
+            outline: none;
+            border-color: #ffffff;
+            box-shadow: 0 0 0 1px #ffffff;
+        }
+    }
+
+    option {
+        background-color: #161b22;
+        color: #d1d5db;
+    }
+}
+
+/* Table Styles */
+.table-container {
+    z-index: 1;
+    position: relative;
+    overflow: auto;
+}
+
+.table-header {
+    z-index: 100;
+    background-color: var(--table-header-bg);
+    border-color: var(--table-header-border);
+}
+
+.table-cell {
+    background-color: var(--table-bg);
+    color: var(--text-color);
+}
+
+th,
+td {
+    border: 1px solid var(--border-color);
+}
+
+/* Sticky Table Elements */
+th.sticky,
+td.sticky {
+    position: sticky;
+    z-index: 2;
+}
+
+th.sticky {
+    top: 0;
+}
+
+td.sticky-left {
+    left: 0;
+    z-index: 1;
+}
+
+td.sticky-left:nth-child(2) {
+    left: 200px;
+}
+
+/* Table Shadow Effects */
+th.sticky,
+td.sticky-left {
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] {
+
+    th.sticky,
+    td.sticky-left {
+        box-shadow: 2px 0 5px rgba(200, 200, 200, 0.3);
+    }
+
+    tbody tr {
+        background-color: white;
+    }
+}
+
+[data-theme="dark"] tbody tr {
+    background-color: var(--table-bg);
+}
+
+/* DatePicker Styles */
+.react-datepicker-popper {
+    z-index: 1050 !important;
+    position: absolute !important;
+}
+
+.react-datepicker {
+    background-color: var(--input-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+.react-datepicker__header {
+    background-color: var(--table-header-bg) !important;
+    border-bottom-color: var(--border-color) !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name,
+.react-datepicker__day {
+    color: var(--text-color) !important;
+}
+
+.react-datepicker__day:hover {
+    background-color: var(--hover-bg) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+    background-color: var(--icon-button-hover) !important;
+}
+
+/* Utility Classes */
+.border-custom {
+    border-color: var(--border-color);
+}
+
+.bg-custom {
+    background-color: var(--bg-color);
+}
+
+.hover-custom:hover {
+    background-color: var(--hover-bg);
+}
+
+.line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Action Button Styles */
+.action-button {
+    background-color: var(--icon-button-bg);
+    color: var(--icon-button-text);
+
+    &:hover {
+        background-color: var(--icon-button-hover);
+        color: var(--icon-button-text-hover);
+    }
+}
+
+/* Button Base Styles */
+.btn-base {
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0.5rem 1.5rem;
+}
+
+/* Light Theme Button Styles */
+[data-theme="light"] .btn-base {
+    background-color: #f8fafc;
+    color: #000000;
+    border: 1px solid #000000;
+}
+
+[data-theme="light"] .btn-base:hover:not(:disabled) {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+/* Dark Theme Button Styles */
+[data-theme="dark"] .btn-base {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+}
+
+[data-theme="dark"] .btn-base:hover:not(:disabled) {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+.btn-pages {
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0.5rem 0.5rem;
+}
+
+/* Light Theme Button Styles */
+[data-theme="light"] .btn-pages {
+    background-color: #f8fafc;
+    color: #000000;
+    border: 0.5px solid #000000;
+}
+
+[data-theme="light"] .btn-pages:hover:not(:disabled) {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+/* Dark Theme Button Styles */
+[data-theme="dark"] .btn-pages {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 0.5px solid #ffffff;
+}
+
+[data-theme="dark"] .btn-pages:hover:not(:disabled) {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+/* Icon Button Variations */
+.btn-icon {
+    padding: 0.375rem;
+}
+
+/* Disabled State */
+.btn-base:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Disabled State */
+.btn-pages:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Success Button (for Save Changes) - keeping this distinct */
+.btn-success {
+    background-color: #238636 !important;
+    color: white !important;
+    border-color: transparent !important;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: #2ea043 !important;
+}
+
+/* Modal Base Styles */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.modal-container {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--bg-color);
+}
+
+.modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    background-color: var(--bg-color);
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+    position: sticky;
+    bottom: 0;
+    background-color: var(--bg-color);
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+/* Modal Input Styles */
+.modal-input {
+    width: 100%;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+}
+
+.modal-input[readonly] {
+    opacity: 0.7;
+}
+
+.modal-textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Theme-specific Modal Styles */
+[data-theme="light"] .modal-container {
+    background-color: white;
+    border-color: #e5e7eb;
+}
+
+[data-theme="dark"] .modal-container {
+    background-color: #0a0c10;
+    border-color: #30363d;
+}
+
+/* Clear button styles */
+.clear-btn {
+    @apply absolute w-4 h-4 flex items-center justify-center text-sm font-medium transition-colors;
+}
+
+/* Light theme */
+[data-theme="light"] .clear-btn {
+    @apply text-black hover:text-red-500;
+}
+
+/* Dark theme */
+[data-theme="dark"] .clear-btn {
+    @apply text-white hover:text-red-500;
+}
+
+tr[style] {
+    background-color: var(--bg-color) !important;
+}
+
+/* Apply stage color to entire row, including sticky cells */
+tr[data-stage="CTC"] td {
+    background-color: #93C47D !important;
+}
+tr[data-stage="On Hold"] td {
+    background-color: #DE3838 !important;
+}
+tr[data-stage="Final Review"] td {
+    background-color: #E6874C !important;
+}
+
+/* Ensure dark mode works */
+[data-theme="dark"] tr[data-stage="CTC"] td {
+    background-color: #6aa84f !important;
+}
+[data-theme="dark"] tr[data-stage="On Hold"] td {
+    background-color: #cc0000 !important;
+}
+[data-theme="dark"] tr[data-stage="Final Review"] td {
+    background-color: #d67f35 !important;
+}
+
+/* Remove unwanted overrides */
+tr[data-stage] td {
+    background-color: unset;
+}
