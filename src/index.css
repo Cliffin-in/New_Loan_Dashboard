@@ -522,6 +522,12 @@ tr[data-stage] td.sticky {
     color: black !important;
 }
 
+[data-theme="light"] tr[data-stage="Closed"] td,
+[data-theme="light"] tr[data-stage="Closed"] td.sticky {
+    background-color: #cecece !important;
+    color: black !important;
+}
+
 [data-theme="dark"] tr[data-stage="CTC"] td,
 [data-theme="dark"] tr[data-stage="CTC"] td.sticky {
     background-color: #6aa84f !important;
@@ -538,6 +544,12 @@ tr[data-stage] td.sticky {
 [data-theme="dark"] tr[data-stage="Final Review"] td.sticky {
     background-color: #d67f35 !important;
     color: white !important;
+}
+
+[data-theme="dark"] tr[data-stage="Closed"] td,
+[data-theme="dark"] tr[data-stage="Closed"] td.sticky {
+    background-color: #bebebe !important;
+    color: black !important;
 }
 
 /* Ensure Sticky Columns Inherit Row Color */

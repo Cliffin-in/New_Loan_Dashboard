@@ -279,7 +279,7 @@ const LoanDashboard = () => {
 
   const generateLFGUrl = (pipeline = "", opportunityName = "") => {
     const baseUrl =
-      "https://app.gohighlevel.com/v2/location/NqyhE9rC0Op4IlSj2IIZ/opportunities/list";
+      "https://app.lfglending.com/v2/location/NqyhE9rC0Op4IlSj2IIZ/opportunities/list";
 
     const encodeCustom = (str) => str.replace(/ /g, "%20");
 
@@ -1001,43 +1001,27 @@ const LoanDashboard = () => {
                     </td>
                     <td className="sticky left-[500px] z-10 bg-custom px-6 py-4 border border-custom min-w-[100px]">
                       <div className="flex gap-2">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <button className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors">
-                                <Pencil className="w-4 h-4 text-white" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              className="tooltip-content"
-                              side="top"
-                              align="center"
-                            >
-                              <p>Edit</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <button
+                          className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
+                          onClick={() => {
+                            setEditingData(row);
+                            setIsEditModalOpen(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4 text-white" />
+                        </button>
 
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <a
-                                href={generateLFGUrl(
-                                  row.pipeline,
-                                  row.opportunityName
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors inline-flex items-center relative justify-center"
-                              >
-                                <Eye className="w-4 h-4 text-white" />
-                              </a>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={4}>
-                              <p>View in LFG</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <a
+                          href={generateLFGUrl(
+                            row.pipeline,
+                            row.opportunityName
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors inline-flex items-center relative justify-center"
+                        >
+                          <Eye className="w-4 h-4 text-white" />
+                        </a>
                       </div>
                     </td>
                     {/* Remaining cells */}
