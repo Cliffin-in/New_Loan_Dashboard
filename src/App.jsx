@@ -975,7 +975,7 @@ const LoanDashboard = () => {
                 paginatedData.map((row) => (
                   <tr key={row.id} data-stage={row.stage} className="hover:opacity-90">
                     {/* Fix the first three columns */}
-                    <td className="sticky left-0 z-10 bg-custom  py-4 text-custom border border-custom min-w-[200px]">
+                    <td className="sticky left-0 z-10 bg-custom px-6 py-4 text-custom border border-custom min-w-[200px]">
                       <a
                         href={generateLFGUrl(row.pipeline, row.opportunityName)}
                         target="_blank"
