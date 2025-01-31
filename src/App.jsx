@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Pencil, Eye, RotateCw, ArrowUpDown, Sun, Moon } from "lucide-react";
-import { Input } from "./components/ui/input";
+import { Pencil, Eye, ArrowUpDown, Sun, Moon } from "lucide-react";
 import { Select } from "./components/ui/select";
 import FilterSelect from "./FilterSelect";
 import DateRangeFilter from "./DateRangeFilter";
@@ -1132,7 +1131,17 @@ const LoanDashboard = () => {
                           )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-custom border border-custom text-center">
+                    <td
+                      className={`px-6 py-4 text-custom border border-custom text-center relative`}
+                    >
+                      <div
+                        className="absolute inset-0 z-0"
+                        style={{
+                          backgroundColor: row.followUpFriday
+                            ? "#4EB0AA"
+                            : "transparent",
+                        }}
+                      ></div>
                       <input
                         type="checkbox"
                         checked={row.followUpFriday}
@@ -1165,15 +1174,7 @@ const LoanDashboard = () => {
                               row,
                               updatedData
                             );
-
-                            console.log(
-                              `🟢 Successfully updated Follow-Up Friday to ${newFollowUpValue}`
-                            );
                           } catch (error) {
-                            console.error(
-                              "🔴 Error updating follow-up:",
-                              error
-                            );
                             setError("Failed to update follow-up status.");
 
                             // Revert UI update if API call fails
@@ -1189,7 +1190,7 @@ const LoanDashboard = () => {
                             );
                           }
                         }}
-                        className="h-4 w-4 rounded border-gray-300 bg-custom text-[#238636] focus:ring-[#238636]"
+                        className="relative z-10 h-4 w-4 rounded border-gray-300 bg-custom text-[#238636] focus:ring-[#238636]"
                       />
                     </td>
                   </tr>

@@ -593,4 +593,7 @@ td {
     position: relative;
     overflow: visible; /* Ensure tooltip is not clipped */
 }
-
+td[data-follow-up-checked="true"] {
+    background-color: #4EB0AA !important;
+  }
+  
