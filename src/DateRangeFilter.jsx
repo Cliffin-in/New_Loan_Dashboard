@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import DatePicker from "react-datepicker";
 
 const DateRangeFilter = ({
@@ -8,7 +8,7 @@ const DateRangeFilter = ({
   onFromChange,
   onToChange,
   onFromClear,
-  onToClear
+  onToClear,
 }) => {
   return (
     <div className="flex flex-col">
@@ -27,8 +27,8 @@ const DateRangeFilter = ({
           {fromDate && (
             <button
               onClick={onFromClear}
-              className="clear-filter-btn absolute right-8 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-sm font-medium"
-              aria-label="Clear from date"
+              className="clear-btn right-6 top-1/2 -translate-y-1/2"
+              aria-label="Clear filter"
             >
               ✕
             </button>
@@ -47,8 +47,8 @@ const DateRangeFilter = ({
           {toDate && (
             <button
               onClick={onToClear}
-              className="clear-filter-btn absolute right-8 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-sm font-medium"
-              aria-label="Clear to date"
+              className="clear-btn right-6 top-1/2 -translate-y-1/2"
+              aria-label="Clear filter"
             >
               ✕
             </button>

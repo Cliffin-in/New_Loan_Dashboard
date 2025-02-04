@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Pencil, Eye, RotateCw, ArrowUpDown, Sun, Moon } from "lucide-react";
-import { Card, CardContent } from "./components/ui/card";
-import { Input } from "./components/ui/input";
+import { Pencil, Eye, ArrowUpDown, Sun, Moon } from "lucide-react";
 import { Select } from "./components/ui/select";
+import FilterSelect from "./FilterSelect";
+import DateRangeFilter from "./DateRangeFilter";
+import SearchField from "./SearchField";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./index.css";
@@ -20,6 +21,8 @@ const LoanDashboard = () => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isTableLoading, setIsTableLoading] = useState(false);
+  const [tableError, setTableError] = useState(null);
 
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("dashboard-theme");
@@ -56,20 +59,25 @@ const LoanDashboard = () => {
   // Add data loading function
   const loadData = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
+      setIsLoading(true); // Show full-screen loading only on initial load
+      setIsTableLoading(true); // Show table loading animation
+      setTableError(null); // Clear previous errors
+
       const opportunities = await api.getAllOpportunities();
       setData(opportunities);
     } catch (error) {
-      setError("Failed to load opportunities. Please try again.");
-      console.error("Error loading data:", error);
+      setTableError("⚠️ Failed to load opportunities. Please try again.");
+      console.error("🔴 Error loading data:", error);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Remove full-screen loading
+      setIsTableLoading(false); // Remove table loading animation
     }
   };
 
   // Handle refresh button click
   const handleRefresh = () => {
+    setIsTableLoading(true); // Show loading state in table
+    setTableError(null); // Reset error before refreshing
     loadData();
   };
 
@@ -127,6 +135,9 @@ const LoanDashboard = () => {
       );
       document.documentElement.style.setProperty("--table-bg", "white");
       document.documentElement.style.setProperty("--input-bg", "white");
+
+      // Default row background color (only applied when stage-based color is not set)
+      document.documentElement.style.setProperty("--row-bg-color", "white");
     } else {
       document.documentElement.style.setProperty("--bg-color", "#0a0c10");
       document.documentElement.style.setProperty("--text-color", "#d1d5db");
@@ -142,6 +153,9 @@ const LoanDashboard = () => {
       );
       document.documentElement.style.setProperty("--table-bg", "#0d1117");
       document.documentElement.style.setProperty("--input-bg", "#161b22");
+
+      // Default row background color (only applied when stage-based color is not set)
+      document.documentElement.style.setProperty("--row-bg-color", "#0a0c10");
     }
   }, [theme]);
 
@@ -264,7 +278,7 @@ const LoanDashboard = () => {
 
   const generateLFGUrl = (pipeline = "", opportunityName = "") => {
     const baseUrl =
-      "https://app.gohighlevel.com/v2/location/NqyhE9rC0Op4IlSj2IIZ/opportunities/list";
+      "https://app.lfglending.com/v2/location/NqyhE9rC0Op4IlSj2IIZ/opportunities/list";
 
     const encodeCustom = (str) => str.replace(/ /g, "%20");
 
@@ -282,14 +296,7 @@ const LoanDashboard = () => {
     return `${baseUrl}${queryString ? "?" + queryString : ""}`;
   };
 
-  const EditModal = ({
-    isOpen,
-    onClose,
-    data,
-    uniquePipelineStages,
-    uniqueStages,
-    onSave,
-  }) => {
+  const EditModal = ({ isOpen, onClose, data, uniqueStages, onSave }) => {
     const [editedData, setEditedData] = useState(data);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
@@ -542,11 +549,13 @@ const LoanDashboard = () => {
                     }
                     className="input-custom w-full"
                   >
-                    {uniqueStages.map((stage) => (
-                      <option key={stage} value={stage}>
-                        {stage}
-                      </option>
-                    ))}
+                    {uniqueStages
+                      .filter((stage) => stage && stage.trim() !== "")
+                      .map((stage) => (
+                        <option key={stage} value={stage}>
+                          {stage}
+                        </option>
+                      ))}
                   </Select>
                 </div>
               </div>
@@ -768,142 +777,76 @@ const LoanDashboard = () => {
       {/* Header Section */}
       <div className="p-4 border border-custom bg-custom rounded-t-lg">
         <div className="grid grid-cols-4 gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-custom">Loan Officer</label>
-            <Select
-              className="bg-custom text-custom border-custom rounded-md"
-              value={filters.assignedUser}
-              onChange={(e) =>
-                handleFilterChange("assignedUser", e.target.value)
-              }
-            >
-              <option value="">All</option>
-              {uniqueAssignedUsers.map((user) => (
-                <option key={user} value={user}>
-                  {user}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-custom">Pipeline Name</label>
-            <Select
-              className="bg-custom text-custom border-custom rounded-md"
-              value={filters.pipeline}
-              onChange={(e) => handleFilterChange("pipeline", e.target.value)}
-            >
-              <option value="">All</option>
-              {uniquePipelines.map((pipeline) => (
-                <option key={pipeline} value={pipeline}>
-                  {pipeline}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-custom">Pipeline Stage</label>
-            <Select
-              className="bg-custom text-custom border-custom rounded-md"
-              value={filters.pipelineStage}
-              onChange={(e) =>
-                handleFilterChange("pipelineStage", e.target.value)
-              }
-            >
-              <option value="">All</option>
-              {uniquePipelineStages.map((stage) => (
-                <option key={stage} value={stage}>
-                  {stage}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-custom">Loan Stage</label>
-            <Select
-              className="bg-custom text-custom border-custom rounded-md"
-              value={filters.stage}
-              onChange={(e) => handleFilterChange("stage", e.target.value)}
-            >
-              <option value="">All</option>
-              {uniqueStages.map((stage) => (
-                <option key={stage} value={stage}>
-                  {stage}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <FilterSelect
+            label="Loan Officer"
+            value={filters.assignedUser}
+            onChange={(e) => handleFilterChange("assignedUser", e.target.value)}
+            onClear={() => handleFilterChange("assignedUser", "")}
+            options={uniqueAssignedUsers}
+          />
+
+          <FilterSelect
+            label="Pipeline Name"
+            value={filters.pipeline}
+            onChange={(e) => handleFilterChange("pipeline", e.target.value)}
+            onClear={() => handleFilterChange("pipeline", "")}
+            options={uniquePipelines}
+          />
+
+          <FilterSelect
+            label="Pipeline Stage"
+            value={filters.pipelineStage}
+            onChange={(e) =>
+              handleFilterChange("pipelineStage", e.target.value)
+            }
+            onClear={() => handleFilterChange("pipelineStage", "")}
+            options={uniquePipelineStages}
+          />
+
+          <FilterSelect
+            label="Loan Stage"
+            value={filters.stage}
+            onChange={(e) => handleFilterChange("stage", e.target.value)}
+            onClear={() => handleFilterChange("stage", "")}
+            options={uniqueStages}
+          />
         </div>
         {/* Date Range Filters */}
+        {/* Replace the existing date range filters with this code */}
         <div className="grid grid-cols-3 gap-4 mt-4 px-2">
           {/* Actual Closing Date Range */}
-          <div className="flex flex-col">
-            <label className="text-custom mb-2">
-              Actual Closing Date Range
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-grow max-w-[200px]">
-                <DatePicker
-                  selected={filters.actualClosingDateFrom}
-                  onChange={(date) =>
-                    handleFilterChange("actualClosingDateFrom", date)
-                  }
-                  className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2"
-                  placeholderText="From"
-                  dateFormat="yyyy-MM-dd"
-                  calendarClassName="bg-[#161b22] border border-custom rounded-md shadow-lg"
-                  popperClassName="z-[9999]"
-                />
-              </div>
-              <div className="relative flex-grow max-w-[200px]">
-                <DatePicker
-                  selected={filters.actualClosingDateTo}
-                  onChange={(date) =>
-                    handleFilterChange("actualClosingDateTo", date)
-                  }
-                  className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2"
-                  placeholderText="To"
-                  dateFormat="yyyy-MM-dd"
-                  calendarClassName="bg-[#161b22] border border-custom rounded-md shadow-lg"
-                  popperClassName="z-[9999]"
-                />
-              </div>
-            </div>
-          </div>
+          <DateRangeFilter
+            label="Actual Closing Date Range"
+            fromDate={filters.actualClosingDateFrom}
+            toDate={filters.actualClosingDateTo}
+            onFromChange={(date) =>
+              handleFilterChange("actualClosingDateFrom", date)
+            }
+            onToChange={(date) =>
+              handleFilterChange("actualClosingDateTo", date)
+            }
+            onFromClear={() =>
+              handleFilterChange("actualClosingDateFrom", null)
+            }
+            onToClear={() => handleFilterChange("actualClosingDateTo", null)}
+          />
 
           {/* Original Closing Date Range */}
-          <div className="flex flex-col">
-            <label className="text-custom mb-2">
-              Original Closing Date Range
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-grow max-w-[200px]">
-                <DatePicker
-                  selected={filters.originalClosingDateFrom}
-                  onChange={(date) =>
-                    handleFilterChange("originalClosingDateFrom", date)
-                  }
-                  className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2"
-                  placeholderText="From"
-                  dateFormat="yyyy-MM-dd"
-                  calendarClassName="bg-[#161b22] border border-custom rounded-md shadow-lg"
-                  popperClassName="z-[9999]"
-                />
-              </div>
-              <div className="relative flex-grow max-w-[200px]">
-                <DatePicker
-                  selected={filters.originalClosingDateTo}
-                  onChange={(date) =>
-                    handleFilterChange("originalClosingDateTo", date)
-                  }
-                  className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2"
-                  placeholderText="To"
-                  dateFormat="yyyy-MM-dd"
-                  calendarClassName="bg-[#161b22] border border-custom rounded-md shadow-lg"
-                  popperClassName="z-[9999]"
-                />
-              </div>
-            </div>
-          </div>
+          <DateRangeFilter
+            label="Original Closing Date Range"
+            fromDate={filters.originalClosingDateFrom}
+            toDate={filters.originalClosingDateTo}
+            onFromChange={(date) =>
+              handleFilterChange("originalClosingDateFrom", date)
+            }
+            onToChange={(date) =>
+              handleFilterChange("originalClosingDateTo", date)
+            }
+            onFromClear={() =>
+              handleFilterChange("originalClosingDateFrom", null)
+            }
+            onToClear={() => handleFilterChange("originalClosingDateTo", null)}
+          />
 
           {/* Reset Filters Button */}
           <div className="flex justify-end items-end">
@@ -916,17 +859,12 @@ const LoanDashboard = () => {
 
       {/* Search and Actions Section */}
       <div className="px-4 py-3 border-x border-b border-custom bg-custom">
-        <div className="flex gap-4">
-          <Input
-            placeholder="Search..."
-            className="input-custom flex-grow rounded-md"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button className="btn-base btn-icon" onClick={handleRefresh}>
-            <RotateCw className="w-5 h-5" />
-          </button>
-        </div>
+        <SearchField
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onClear={() => setSearchTerm("")}
+          onRefresh={handleRefresh}
+        />
       </div>
 
       {/* Table Section */}
@@ -997,207 +935,267 @@ const LoanDashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedData.map((row) => (
-                <tr key={row.id} className="hover:bg-custom">
-                  {/* Fix the first three columns */}
-                  <td className="sticky left-0 z-10 bg-custom px-6 py-4 text-custom border border-custom min-w-[200px]">
-                    <a
-                      href={generateLFGUrl(row.pipeline, row.opportunityName)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-custom hover:text-blue-500 transition-colors duration-200"
-                    >
-                      {row.name}
-                    </a>
-                  </td>
-                  <td className="sticky left-[200px] z-10 bg-custom px-6 py-4 text-custom border border-custom min-w-[300px]">
-                    <a
-                      href={generateLFGUrl(row.pipeline, row.opportunityName)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-custom hover:text-blue-500 transition-colors duration-200"
-                    >
-                      {row.opportunityName}
-                    </a>
-                  </td>
-                  <td className="sticky left-[500px] z-10 bg-custom px-6 py-4 border border-custom min-w-[100px]">
-                    <div className="flex gap-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <button
-                              className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
-                              onClick={() => {
-                                setEditingData(row);
-                                setIsEditModalOpen(true);
-                              }}
-                            >
-                              <Pencil className="w-4 h-4 text-white" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Edit</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <a
-                              href={generateLFGUrl(
-                                row.pipeline,
-                                row.opportunityName
-                              )}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors inline-flex items-center justify-center"
-                            >
-                              <Eye className="w-4 h-4 text-white" />
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>View in LFG</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </td>
-                  {/* Remaining cells */}
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.businessName}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.pipeline}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.pipelineStage}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.stage}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.actualClosingDate}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.originalClosingDate}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    ${row.monetaryValue}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.assignedUser}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    {row.lender}
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    <div className="relative">
-                      <div className="line-clamp-1 whitespace-pre-line">
-                        {row.dealNotes}
-                      </div>
-                      {row.dealNotes && row.dealNotes.length > 100 && (
-                        <button
-                          onClick={() => {
-                            setViewingData(row);
-                            setIsViewModalOpen(true);
-                          }}
-                          className="text-blue-500 hover:text-blue-400 text-sm mt-1"
-                        >
-                          See more
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    <div className="relative">
-                      <div className="line-clamp-1 whitespace-pre-line">
-                        {row.appraisalNotes}
-                      </div>
-                      {row.appraisalNotes &&
-                        row.appraisalNotes.length > 100 && (
-                          <button
-                            onClick={() => {
-                              setViewingData(row);
-                              setIsViewModalOpen(true);
-                            }}
-                            className="text-blue-500 hover:text-blue-400 text-sm mt-1"
-                          >
-                            See more
-                          </button>
-                        )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    <div className="relative">
-                      <div className="line-clamp-1 whitespace-pre-line">
-                        {row.insuranceNotes}
-                      </div>
-                      {row.insuranceNotes &&
-                        row.insuranceNotes.length > 100 && (
-                          <button
-                            onClick={() => {
-                              setViewingData(row);
-                              setIsViewModalOpen(true);
-                            }}
-                            className="text-blue-500 hover:text-blue-400 text-sm mt-1"
-                          >
-                            See more
-                          </button>
-                        )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom">
-                    <div className="relative">
-                      <div className="line-clamp-1 whitespace-pre-line">
-                        {row.titleNotes}
-                      </div>
-                      {row.titleNotes && row.titleNotes.length > 100 && (
-                        <button
-                          onClick={() => {
-                            setViewingData(row);
-                            setIsViewModalOpen(true);
-                          }}
-                          className="text-blue-500 hover:text-blue-400 text-sm mt-1"
-                        >
-                          See more
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-custom border border-custom text-center">
-                    <input
-                      type="checkbox"
-                      checked={row.followUpFriday}
-                      onChange={async () => {
-                        try {
-                          const updatedData = {
-                            ...row,
-                            followUpFriday: !row.followUpFriday,
-                          };
-                          // First update the opportunity
-                          await api.updateOpportunity(row.id, row, updatedData);
-
-                          // Then fetch the fresh data for this row
-                          const updatedRowData = await api.getOpportunityById(
-                            row.id
-                          );
-
-                          // Update only this row in the table
-                          setData((prevData) =>
-                            prevData.map((item) =>
-                              item.id === row.id ? updatedRowData : item
-                            )
-                          );
-                        } catch (error) {
-                          setError("Failed to update follow-up status.");
-                          console.error("Error updating follow-up:", error);
-                        }
+              {isTableLoading ? (
+                <tr>
+                  <td colSpan="17" style={{ height: "400px", width: "100%" }}>
+                    <div
+                      style={{
+                        position: "fixed",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: "auto",
                       }}
-                      className="h-4 w-4 rounded border-gray-300 bg-custom text-[#238636] focus:ring-[#238636]"
-                    />
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 border-4 border-t-blue-500 border-b-blue-500 rounded-full animate-spin"></div>
+                        <div className="mt-4 text-custom">
+                          Refreshing Data...
+                        </div>
+                      </div>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : tableError ? (
+                <tr>
+                  <td colSpan="17" style={{ height: "400px", width: "100%" }}>
+                    <div
+                      style={{
+                        position: "fixed",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: "auto",
+                      }}
+                    >
+                      <div className="text-red-500 text-lg">{tableError}</div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedData.map((row) => (
+                  <tr
+                    key={row.id}
+                    data-stage={row.stage}
+                    className="hover:opacity-90"
+                  >
+                    {/* Fix the first three columns */}
+                    <td className="sticky left-0 z-10 bg-custom px-6 py-4 text-custom border border-custom min-w-[200px]">
+                      <a
+                        href={generateLFGUrl(row.pipeline, row.opportunityName)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-custom hover:text-blue-500 transition-colors duration-200"
+                      >
+                        {row.name}
+                      </a>
+                    </td>
+                    <td className="sticky left-[200px] z-10 bg-custom px-6 py-4 text-custom border border-custom min-w-[300px]">
+                      <a
+                        href={generateLFGUrl(row.pipeline, row.opportunityName)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-custom hover:text-blue-500 transition-colors duration-200"
+                      >
+                        {row.opportunityName}
+                      </a>
+                    </td>
+                    <td className="sticky left-[500px] z-10 bg-custom px-6 py-4 border border-custom min-w-[100px]">
+                      <div className="flex gap-2">
+                        <button
+                          className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
+                          onClick={() => {
+                            setEditingData(row);
+                            setIsEditModalOpen(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4 text-white" />
+                        </button>
+
+                        <a
+                          href={generateLFGUrl(
+                            row.pipeline,
+                            row.opportunityName
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors inline-flex items-center relative justify-center"
+                        >
+                          <Eye className="w-4 h-4 text-white" />
+                        </a>
+                      </div>
+                    </td>
+                    {/* Remaining cells */}
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.businessName}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.pipeline}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.pipelineStage}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.stage}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.actualClosingDate}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.originalClosingDate}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      ${row.monetaryValue}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.assignedUser}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      {row.lender}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      <div className="relative">
+                        <div className="line-clamp-1 whitespace-pre-line">
+                          {row.dealNotes}
+                        </div>
+                        {row.dealNotes &&
+                          (row.dealNotes.length > 100 ||
+                            row.dealNotes.split("\n").length > 3) && (
+                            <button
+                              onClick={() => {
+                                setViewingData(row);
+                                setIsViewModalOpen(true);
+                              }}
+                              className="text-blue-500 hover:text-blue-400 text-sm mt-1"
+                            >
+                              See more
+                            </button>
+                          )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      <div className="relative">
+                        <div className="line-clamp-1 whitespace-pre-line">
+                          {row.appraisalNotes}
+                        </div>
+                        {row.appraisalNotes &&
+                          (row.appraisalNotes.length > 100 ||
+                            row.appraisalNotes.split("\n").length > 3) && (
+                            <button
+                              onClick={() => {
+                                setViewingData(row);
+                                setIsViewModalOpen(true);
+                              }}
+                              className="text-blue-500 hover:text-blue-400 text-sm mt-1"
+                            >
+                              See more
+                            </button>
+                          )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      <div className="relative">
+                        <div className="line-clamp-1 whitespace-pre-line">
+                          {row.insuranceNotes}
+                        </div>
+                        {row.insuranceNotes &&
+                          (row.insuranceNotes.length > 100 ||
+                            row.insuranceNotes.split("\n").length > 3) && (
+                            <button
+                              onClick={() => {
+                                setViewingData(row);
+                                setIsViewModalOpen(true);
+                              }}
+                              className="text-blue-500 hover:text-blue-400 text-sm mt-1"
+                            >
+                              See more
+                            </button>
+                          )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      <div className="relative">
+                        <div className="line-clamp-1 whitespace-pre-line">
+                          {row.titleNotes}
+                        </div>
+                        {row.titleNotes &&
+                          (row.titleNotes.length > 100 ||
+                            row.titleNotes.split("\n").length > 3) && (
+                            <button
+                              onClick={() => {
+                                setViewingData(row);
+                                setIsViewModalOpen(true);
+                              }}
+                              className="text-blue-500 hover:text-blue-400 text-sm mt-1"
+                            >
+                              See more
+                            </button>
+                          )}
+                      </div>
+                    </td>
+                    <td
+                      className={`px-6 py-4 text-custom border border-custom text-center relative`}
+                    >
+                      <div
+                        className="absolute inset-0 z-0"
+                        style={{
+                          backgroundColor: row.followUpFriday
+                            ? "#4EB0AA"
+                            : "transparent",
+                        }}
+                      ></div>
+                      <input
+                        type="checkbox"
+                        checked={row.followUpFriday}
+                        onChange={async (e) => {
+                          try {
+                            const newFollowUpValue = e.target.checked;
+
+                            // Optimistically update the UI before API call
+                            setData((prevData) =>
+                              prevData.map((item) =>
+                                item.id === row.id
+                                  ? {
+                                      ...item,
+                                      followUpFriday: newFollowUpValue,
+                                    }
+                                  : item
+                              )
+                            );
+
+                            // Construct the updated data
+                            const updatedData = {
+                              updates: {
+                                followUpFriday: newFollowUpValue,
+                              },
+                            };
+
+                            // Send the API request
+                            await api.updateOpportunity(
+                              row.id,
+                              row,
+                              updatedData
+                            );
+                          } catch (error) {
+                            setError("Failed to update follow-up status.");
+
+                            // Revert UI update if API call fails
+                            setData((prevData) =>
+                              prevData.map((item) =>
+                                item.id === row.id
+                                  ? {
+                                      ...item,
+                                      followUpFriday: !newFollowUpValue,
+                                    }
+                                  : item
+                              )
+                            );
+                          }
+                        }}
+                        className="relative z-10 h-4 w-4 rounded border-gray-300 bg-custom text-[#238636] focus:ring-[#238636]"
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

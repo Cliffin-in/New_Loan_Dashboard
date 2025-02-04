@@ -31,10 +31,10 @@ const LoanDashboard = () => {
 
   // State for filters
   const [filters, setFilters] = useState({
-    assignedUser: "",
-    pipeline: "",
-    pipelineStage: "",
-    stage: "",
+    assignedUser: [], // Changed from "" to []
+    pipeline: [],
+    pipelineStage: [],
+    stage: [],
     actualClosingDateFrom: null,
     actualClosingDateTo: null,
     originalClosingDateFrom: null,
@@ -183,11 +183,13 @@ const LoanDashboard = () => {
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
     );
     const matchesFilters =
-      (!filters.assignedUser || item.assignedUser === filters.assignedUser) &&
-      (!filters.pipeline || item.pipeline === filters.pipeline) &&
-      (!filters.pipelineStage ||
-        item.pipelineStage === filters.pipelineStage) &&
-      (!filters.stage || item.stage === filters.stage) &&
+      (filters.assignedUser.length === 0 ||
+        filters.assignedUser.includes(item.assignedUser)) &&
+      (filters.pipeline.length === 0 ||
+        filters.pipeline.includes(item.pipeline)) &&
+      (filters.pipelineStage.length === 0 ||
+        filters.pipelineStage.includes(item.pipelineStage)) &&
+      (filters.stage.length === 0 || filters.stage.includes(item.stage)) &&
       (!filters.actualClosingDateFrom ||
         new Date(item.actualClosingDate) >= filters.actualClosingDateFrom) &&
       (!filters.actualClosingDateTo ||
@@ -243,10 +245,10 @@ const LoanDashboard = () => {
   // Handle reset filters
   const resetFilters = () => {
     setFilters({
-      assignedUser: "",
-      pipeline: "",
-      pipelineStage: "",
-      stage: "",
+      assignedUser: [],
+      pipeline: [],
+      pipelineStage: [],
+      stage: [],
       actualClosingDateFrom: null,
       actualClosingDateTo: null,
       originalClosingDateFrom: null,
@@ -779,35 +781,33 @@ const LoanDashboard = () => {
         <div className="grid grid-cols-4 gap-4">
           <FilterSelect
             label="Loan Officer"
-            value={filters.assignedUser}
-            onChange={(e) => handleFilterChange("assignedUser", e.target.value)}
-            onClear={() => handleFilterChange("assignedUser", "")}
+            selectedValues={filters.assignedUser}
+            onChange={(values) => handleFilterChange("assignedUser", values)}
+            onClear={() => handleFilterChange("assignedUser", [])}
             options={uniqueAssignedUsers}
           />
 
           <FilterSelect
             label="Pipeline Name"
-            value={filters.pipeline}
-            onChange={(e) => handleFilterChange("pipeline", e.target.value)}
-            onClear={() => handleFilterChange("pipeline", "")}
+            selectedValues={filters.pipeline}
+            onChange={(values) => handleFilterChange("pipeline", values)}
+            onClear={() => handleFilterChange("pipeline", [])}
             options={uniquePipelines}
           />
 
           <FilterSelect
             label="Pipeline Stage"
-            value={filters.pipelineStage}
-            onChange={(e) =>
-              handleFilterChange("pipelineStage", e.target.value)
-            }
-            onClear={() => handleFilterChange("pipelineStage", "")}
+            selectedValues={filters.pipelineStage}
+            onChange={(values) => handleFilterChange("pipelineStage", values)}
+            onClear={() => handleFilterChange("pipelineStage", [])}
             options={uniquePipelineStages}
           />
 
           <FilterSelect
             label="Loan Stage"
-            value={filters.stage}
-            onChange={(e) => handleFilterChange("stage", e.target.value)}
-            onClear={() => handleFilterChange("stage", "")}
+            selectedValues={filters.stage}
+            onChange={(values) => handleFilterChange("stage", values)}
+            onClear={() => handleFilterChange("stage", [])}
             options={uniqueStages}
           />
         </div>
