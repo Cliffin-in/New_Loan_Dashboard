@@ -63,7 +63,7 @@ const AccessControl = ({ children }) => {
     const checkAccess = () => {
       // Get email from URL parameters
       const params = new URLSearchParams(window.location.search);
-      const userEmail = params.get('email')?.toLowerCase();
+      const userEmail = params.get('email');
 
       if (!userEmail) {
         setAccessState({
