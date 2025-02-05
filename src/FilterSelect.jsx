@@ -33,6 +33,16 @@ const FilterSelect = ({
     onChange(newValues);
   };
 
+  const handleSelectAll = () => {
+    if (selectedValues.length === validOptions.length) {
+      onChange([]);
+    } else {
+      onChange([...validOptions]);
+    }
+  };
+
+  const isAllSelected = validOptions.length > 0 && selectedValues.length === validOptions.length;
+
   return (
     <div className="relative flex flex-col gap-2" ref={dropdownRef}>
       <label className="text-custom">{label}</label>
@@ -62,6 +72,22 @@ const FilterSelect = ({
 
         {isOpen && (
           <div className="absolute z-50 w-full mt-1 bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-lg max-h-60 overflow-auto">
+            {/* Select All Option */}
+            <div
+              className="flex items-center px-3 py-2 hover:bg-[var(--hover-bg)] cursor-pointer text-custom border-b border-[var(--border-color)]"
+              onClick={handleSelectAll}
+            >
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                onChange={handleSelectAll}
+                className="h-4 w-4 rounded border-[var(--border-color)] bg-[var(--input-bg)] text-[#238636] focus:ring-[#238636]"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="ml-2 font-medium">Select All</span>
+            </div>
+
+            {/* Individual Options */}
             {validOptions.map((option) => (
               <div
                 key={option}

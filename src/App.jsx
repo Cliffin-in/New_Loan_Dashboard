@@ -182,6 +182,69 @@ const LoanDashboard = () => {
     const matchesSearch = Object.values(item).some((value) =>
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Convert dates to start of day for actual closing date
+    const itemActualDate = item.actualClosingDate
+      ? new Date(item.actualClosingDate)
+      : null;
+    const actualFromDate = filters.actualClosingDateFrom
+      ? new Date(filters.actualClosingDateFrom.setHours(0, 0, 0, 0))
+      : null;
+    const actualToDate = filters.actualClosingDateTo
+      ? new Date(filters.actualClosingDateTo.setHours(23, 59, 59, 999))
+      : null;
+
+    // Convert dates to start of day for original closing date
+    const itemOriginalDate = item.originalClosingDate
+      ? new Date(item.originalClosingDate)
+      : null;
+    const originalFromDate = filters.originalClosingDateFrom
+      ? new Date(filters.originalClosingDateFrom.setHours(0, 0, 0, 0))
+      : null;
+    const originalToDate = filters.originalClosingDateTo
+      ? new Date(filters.originalClosingDateTo.setHours(23, 59, 59, 999))
+      : null;
+
+    // Handle actual closing date filtering
+    const matchesActualDateFilter =
+      // If no date filter is set, include all records
+      !actualFromDate && !actualToDate
+        ? true
+        : // If date filter is set but item has no date, exclude it
+        !itemActualDate
+        ? false
+        : // If both from and to dates are set
+        actualFromDate && actualToDate
+        ? itemActualDate >= actualFromDate && itemActualDate <= actualToDate
+        : // If only from date is set
+        actualFromDate
+        ? itemActualDate >= actualFromDate
+        : // If only to date is set
+        actualToDate
+        ? itemActualDate <= actualToDate
+        : true;
+
+    // Handle original closing date filtering
+    const matchesOriginalDateFilter =
+      // If no date filter is set, include all records
+      !originalFromDate && !originalToDate
+        ? true
+        : // If date filter is set but item has no date, exclude it
+        !itemOriginalDate
+        ? false
+        : // If both from and to dates are set
+        originalFromDate && originalToDate
+        ? itemOriginalDate >= originalFromDate &&
+          itemOriginalDate <= originalToDate
+        : // If only from date is set
+        originalFromDate
+        ? itemOriginalDate >= originalFromDate
+        : // If only to date is set
+        originalToDate
+        ? itemOriginalDate <= originalToDate
+        : true;
+
+    // Combine all filters
     const matchesFilters =
       (filters.assignedUser.length === 0 ||
         filters.assignedUser.includes(item.assignedUser)) &&
@@ -190,15 +253,8 @@ const LoanDashboard = () => {
       (filters.pipelineStage.length === 0 ||
         filters.pipelineStage.includes(item.pipelineStage)) &&
       (filters.stage.length === 0 || filters.stage.includes(item.stage)) &&
-      (!filters.actualClosingDateFrom ||
-        new Date(item.actualClosingDate) >= filters.actualClosingDateFrom) &&
-      (!filters.actualClosingDateTo ||
-        new Date(item.actualClosingDate) <= filters.actualClosingDateTo) &&
-      (!filters.originalClosingDateFrom ||
-        new Date(item.originalClosingDate) >=
-          filters.originalClosingDateFrom) &&
-      (!filters.originalClosingDateTo ||
-        new Date(item.originalClosingDate) <= filters.originalClosingDateTo);
+      matchesActualDateFilter &&
+      matchesOriginalDateFilter;
 
     return matchesSearch && matchesFilters;
   });
