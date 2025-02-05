@@ -32,10 +32,21 @@ const authorizedUsers = {
   'ashley@lfglending.com': ACCESS_LEVELS.ADMIN,
   'kaileigh@lfglending.com': ACCESS_LEVELS.ADMIN,
   'Lorena@lfglending.com': ACCESS_LEVELS.ADMIN,
+  'Abbey@LFGlending.com': ACCESS_LEVELS.ADMIN,
+  'liz@lfglending.com': ACCESS_LEVELS.ADMIN,
   'byron@teksupport.io': ACCESS_LEVELS.ADMIN,
   'mycrm@innostak.com': ACCESS_LEVELS.ADMIN,
   'jeff@innostak.com': ACCESS_LEVELS.ADMIN,
-  'viewer1@example.com': ACCESS_LEVELS.VIEWER,
+
+  'nicole@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'Kat@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'kevin@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'adam@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'kate@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'brooke@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'Dan@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'david@lfglending.com': ACCESS_LEVELS.VIEWER,
+  'Dawn@lfglending.com': ACCESS_LEVELS.VIEWER,
   'viewer2@example.com': ACCESS_LEVELS.VIEWER,
   // Add more users here
 };
