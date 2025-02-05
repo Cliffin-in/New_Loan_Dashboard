@@ -1120,7 +1120,13 @@ const LoanDashboard = () => {
                       </a>
                     </td>
                     <td className="sticky left-[500px] z-10 bg-custom px-6 py-4 border border-custom min-w-[100px]">
-                      <div className="flex gap-2">
+                      <div
+                        className={`flex ${
+                          permissions.canEdit
+                            ? "gap-2"
+                            : "justify-center w-full"
+                        }`}
+                      >
                         {permissions.canEdit && (
                           <button
                             className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
@@ -1132,7 +1138,6 @@ const LoanDashboard = () => {
                             <Pencil className="w-4 h-4 text-white" />
                           </button>
                         )}
-
                         <a
                           href={generateLFGUrl(
                             row.pipeline,
