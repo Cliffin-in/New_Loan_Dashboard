@@ -10,22 +10,6 @@ const DateRangeFilter = ({
   onFromClear,
   onToClear,
 }) => {
-  const handleFromChange = (date) => {
-    // If selecting a date later than the current "to" date, update "to" date as well
-    if (toDate && date > toDate) {
-      onToChange(date);
-    }
-    onFromChange(date);
-  };
-
-  const handleToChange = (date) => {
-    // If selecting a date earlier than the current "from" date, update "from" date as well
-    if (fromDate && date < fromDate) {
-      onFromChange(date);
-    }
-    onToChange(date);
-  };
-
   return (
     <div className="flex flex-col">
       <label className="text-custom mb-2">{label}</label>
@@ -33,13 +17,12 @@ const DateRangeFilter = ({
         <div className="relative flex-grow max-w-[200px]">
           <DatePicker
             selected={fromDate}
-            onChange={handleFromChange}
-            className="w-full bg-[var(--input-bg)] text-custom border-custom rounded-md p-2 pr-8"
+            onChange={onFromChange}
+            className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2 pr-8"
             placeholderText="From"
             dateFormat="yyyy-MM-dd"
-            calendarClassName="bg-[var(--input-bg)] border border-custom rounded-md shadow-lg"
+            calendarClassName="bg-[#161b22] border border-custom rounded-md shadow-lg"
             popperClassName="z-[9999]"
-            maxDate={toDate || null}
           />
           {fromDate && (
             <button
@@ -54,13 +37,12 @@ const DateRangeFilter = ({
         <div className="relative flex-grow max-w-[200px]">
           <DatePicker
             selected={toDate}
-            onChange={handleToChange}
-            className="w-full bg-[var(--input-bg)] text-custom border-custom rounded-md p-2 pr-8"
+            onChange={onToChange}
+            className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2 pr-8"
             placeholderText="To"
             dateFormat="yyyy-MM-dd"
-            calendarClassName="bg-[var(--input-bg)] border border-custom rounded-md shadow-lg"
+            calendarClassName="bg-[#161b22] border border-custom rounded-md shadow-lg"
             popperClassName="z-[9999]"
-            minDate={fromDate || null}
           />
           {toDate && (
             <button

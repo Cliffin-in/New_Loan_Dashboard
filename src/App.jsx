@@ -178,74 +178,130 @@ const LoanDashboard = () => {
   ];
   const uniqueStages = [...new Set(data.map((item) => item.stage))];
 
+  // Inside your LoanDashboard component, replace the existing date filtering logic with this:
+
   const filteredData = data.filter((item) => {
+    // Basic search filter
     const matchesSearch = Object.values(item).some((value) =>
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Convert dates to start of day for actual closing date
+    // Helper function to start of day
+    const getStartOfDay = (date) => {
+      if (!date) return null;
+      const newDate = new Date(date);
+      newDate.setHours(0, 0, 0, 0);
+      return newDate;
+    };
+
+    // Helper function to end of day
+    const getEndOfDay = (date) => {
+      if (!date) return null;
+      const newDate = new Date(date);
+      newDate.setHours(23, 59, 59, 999);
+      return newDate;
+    };
+
+    // Actual closing date filtering
     const itemActualDate = item.actualClosingDate
       ? new Date(item.actualClosingDate)
       : null;
     const actualFromDate = filters.actualClosingDateFrom
-      ? new Date(filters.actualClosingDateFrom.setHours(0, 0, 0, 0))
+      ? getStartOfDay(filters.actualClosingDateFrom)
       : null;
     const actualToDate = filters.actualClosingDateTo
-      ? new Date(filters.actualClosingDateTo.setHours(23, 59, 59, 999))
+      ? getEndOfDay(filters.actualClosingDateTo)
       : null;
 
-    // Convert dates to start of day for original closing date
+    const matchesActualDateFilter = (() => {
+      // If no date filter is set, include all records
+      if (!actualFromDate && !actualToDate) return true;
+
+      // If date filter is set but item has no date, exclude it
+      if (!itemActualDate) return false;
+
+      // For single date filter (when from and to dates are the same)
+      if (
+        actualFromDate &&
+        actualToDate &&
+        actualFromDate.toDateString() === actualToDate.toDateString()
+      ) {
+        return itemActualDate.toDateString() === actualFromDate.toDateString();
+      }
+
+      // For date range
+      if (actualFromDate && actualToDate) {
+        return (
+          itemActualDate >= actualFromDate && itemActualDate <= actualToDate
+        );
+      }
+
+      // If only from date is set
+      if (actualFromDate) {
+        return itemActualDate >= actualFromDate;
+      }
+
+      // If only to date is set
+      if (actualToDate) {
+        return itemActualDate <= actualToDate;
+      }
+
+      return true;
+    })();
+
+    // Original closing date filtering
     const itemOriginalDate = item.originalClosingDate
       ? new Date(item.originalClosingDate)
       : null;
     const originalFromDate = filters.originalClosingDateFrom
-      ? new Date(filters.originalClosingDateFrom.setHours(0, 0, 0, 0))
+      ? getStartOfDay(filters.originalClosingDateFrom)
       : null;
     const originalToDate = filters.originalClosingDateTo
-      ? new Date(filters.originalClosingDateTo.setHours(23, 59, 59, 999))
+      ? getEndOfDay(filters.originalClosingDateTo)
       : null;
 
-    // Handle actual closing date filtering
-    const matchesActualDateFilter =
+    const matchesOriginalDateFilter = (() => {
       // If no date filter is set, include all records
-      !actualFromDate && !actualToDate
-        ? true
-        : // If date filter is set but item has no date, exclude it
-        !itemActualDate
-        ? false
-        : // If both from and to dates are set
-        actualFromDate && actualToDate
-        ? itemActualDate >= actualFromDate && itemActualDate <= actualToDate
-        : // If only from date is set
-        actualFromDate
-        ? itemActualDate >= actualFromDate
-        : // If only to date is set
-        actualToDate
-        ? itemActualDate <= actualToDate
-        : true;
+      if (!originalFromDate && !originalToDate) return true;
 
-    // Handle original closing date filtering
-    const matchesOriginalDateFilter =
-      // If no date filter is set, include all records
-      !originalFromDate && !originalToDate
-        ? true
-        : // If date filter is set but item has no date, exclude it
-        !itemOriginalDate
-        ? false
-        : // If both from and to dates are set
-        originalFromDate && originalToDate
-        ? itemOriginalDate >= originalFromDate &&
+      // If date filter is set but item has no date, exclude it
+      if (!itemOriginalDate) return false;
+
+      // For single date filter (when from and to dates are the same)
+      if (
+        originalFromDate &&
+        originalToDate &&
+        originalFromDate.toDateString() === originalToDate.toDateString()
+      ) {
+        return (
+          itemOriginalDate.toDateString() === originalFromDate.toDateString()
+        );
+      }
+
+      // For date range
+      if (originalFromDate && originalToDate) {
+        return (
+          itemOriginalDate >= originalFromDate &&
           itemOriginalDate <= originalToDate
-        : // If only from date is set
-        originalFromDate
-        ? itemOriginalDate >= originalFromDate
-        : // If only to date is set
-        originalToDate
-        ? itemOriginalDate <= originalToDate
-        : true;
+        );
+      }
+
+      // If only from date is set
+      if (originalFromDate) {
+        return itemOriginalDate >= originalFromDate;
+      }
+
+      // If only to date is set
+      if (originalToDate) {
+        return itemOriginalDate <= originalToDate;
+      }
+
+      return true;
+    })();
 
     // Combine all filters
-    const matchesFilters =
+    return (
+      matchesSearch &&
       (filters.assignedUser.length === 0 ||
         filters.assignedUser.includes(item.assignedUser)) &&
       (filters.pipeline.length === 0 ||
@@ -254,9 +310,8 @@ const LoanDashboard = () => {
         filters.pipelineStage.includes(item.pipelineStage)) &&
       (filters.stage.length === 0 || filters.stage.includes(item.stage)) &&
       matchesActualDateFilter &&
-      matchesOriginalDateFilter;
-
-    return matchesSearch && matchesFilters;
+      matchesOriginalDateFilter
+    );
   });
 
   // Handle sorting
