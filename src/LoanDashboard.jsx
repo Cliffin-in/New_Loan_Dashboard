@@ -17,6 +17,8 @@ import {
 import { api } from "./services/api";
 // import { data as initialData } from "./data/loanData";
 
+const standardizeString = (str) => str?.trim().toLowerCase();
+
 const LoanDashboard = () => {
   // const [data, setData] = useState(initialData);
   const { permissions } = useAccess();
@@ -75,6 +77,83 @@ const LoanDashboard = () => {
       setIsTableLoading(false); // Remove table loading animation
     }
   };
+
+  // Function to check if today is Tuesday
+  const isTuesday = () => {
+    return new Date().getDay() === 2;
+  };
+
+  // Function to check if a record was flagged before today
+  const wasFlaggedBeforeToday = (lastModifiedDate) => {
+    if (!lastModifiedDate) return true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const modifiedDate = new Date(lastModifiedDate);
+    modifiedDate.setHours(0, 0, 0, 0);
+
+    return modifiedDate < today;
+  };
+
+  // Function to reset Follow Up Friday flags
+  const resetFollowUpFlags = async () => {
+    try {
+      setIsTableLoading(true);
+
+      // Only get records that were flagged before today
+      const recordsToUpdate = data.filter(
+        (record) =>
+          record.followUpFriday &&
+          wasFlaggedBeforeToday(record.lastModifiedDate)
+      );
+
+      if (recordsToUpdate.length === 0) {
+        console.log("🟢 No records need resetting");
+        return;
+      }
+
+      // Update each record
+      const updatePromises = recordsToUpdate.map((record) => {
+        const updatedData = {
+          updates: {
+            followUpFriday: false,
+            lastModifiedDate: new Date().toISOString(),
+          },
+        };
+        return api.updateOpportunity(record.id, record, updatedData);
+      });
+
+      await Promise.all(updatePromises);
+
+      // Update local state, but only for records flagged before today
+      setData((prevData) =>
+        prevData.map((record) => ({
+          ...record,
+          followUpFriday:
+            record.followUpFriday &&
+            !wasFlaggedBeforeToday(record.lastModifiedDate),
+        }))
+      );
+
+      console.log(
+        "🟢 Successfully reset Follow Up Friday flags for old records"
+      );
+    } catch (error) {
+      console.error("🔴 Error resetting Follow Up Friday flags:", error);
+      setError("Failed to reset follow-up flags.");
+    } finally {
+      setIsTableLoading(false);
+    }
+  };
+
+  // Add this useEffect to check for Tuesday and reset flags
+  useEffect(() => {
+    // Only run once when the dashboard is first opened on a Tuesday
+    if (isTuesday()) {
+      resetFollowUpFlags();
+    }
+  }, []); // Only run on component mount
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -171,14 +250,38 @@ const LoanDashboard = () => {
     });
   };
 
-  const uniqueAssignedUsers = [
-    ...new Set(data.map((item) => item.assignedUser)),
-  ];
-  const uniquePipelines = [...new Set(data.map((item) => item.pipeline))];
+  const uniqueAssignedUsers = [...new Set(
+    data
+      .map(item => item.assignedUser)
+      .filter(Boolean)
+      .map(user => user.trim())
+  )]
+  .sort((a, b) => a.localeCompare(b));
+
+  const uniquePipelines = [...new Set(
+  data
+    .map(item => item.pipeline)
+    .filter(Boolean)
+    .map(pipeline => pipeline.trim())
+)]
+.sort((a, b) => a.localeCompare(b));
+
   const uniquePipelineStages = [
-    ...new Set(data.map((item) => item.pipelineStage)),
-  ];
-  const uniqueStages = [...new Set(data.map((item) => item.stage))];
+    ...new Set(
+      data
+        .map((item) => item.pipelineStage)
+        .filter(Boolean)
+        .map((stage) => stage.trim())
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+
+  const uniqueStages = [...new Set(
+  data
+    .map(item => item.stage)
+    .filter(Boolean)
+    .map(stage => stage.trim())
+)]
+.sort((a, b) => b.localeCompare(a));
 
   // Inside your LoanDashboard component, replace the existing date filtering logic with this:
 
@@ -309,7 +412,12 @@ const LoanDashboard = () => {
       (filters.pipeline.length === 0 ||
         filters.pipeline.includes(item.pipeline)) &&
       (filters.pipelineStage.length === 0 ||
-        filters.pipelineStage.includes(item.pipelineStage)) &&
+        (item.pipelineStage &&
+          filters.pipelineStage.some(
+            (filterStage) =>
+              standardizeString(filterStage) ===
+              standardizeString(item.pipelineStage)
+          ))) &&
       (filters.stage.length === 0 || filters.stage.includes(item.stage)) &&
       matchesActualDateFilter &&
       matchesOriginalDateFilter
