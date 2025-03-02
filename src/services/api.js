@@ -63,11 +63,22 @@ export const api = {
       "insuranceNotes",
       "titleNotes",
       "followUpFriday",
+      "followers",
     ];
 
     fieldsToCheck.forEach((field) => {
       if (updatedData.updates && updatedData.updates.hasOwnProperty(field)) {
-        if (
+        // Special handling for the followers array - compare arrays properly
+        if (field === "followers") {
+          // If arrays are different (by comparing stringified versions)
+          // or if one is present and one isn't, include the field
+          const originalFollowers = JSON.stringify(originalData.followers || []);
+          const updatedFollowers = JSON.stringify(updatedData.updates.followers || []);
+          
+          if (originalFollowers !== updatedFollowers) {
+            updates[field] = updatedData.updates[field];
+          }
+        } else if (
           typeof updatedData.updates[field] === "boolean" ||
           updatedData.updates[field] !== originalData[field]
         ) {
@@ -109,7 +120,6 @@ export const api = {
     }
   },
 
-  // In api.js
   async getPipelineStages() {
     try {
       const response = await fetch(
@@ -127,4 +137,29 @@ export const api = {
       throw error;
     }
   },
+  
+  // New method to get all followers from opportunities
+  async getAllFollowers() {
+    try {
+      const opportunities = await this.getAllOpportunities();
+      
+      // Extract unique followers from all opportunities
+      const allFollowers = new Set();
+      opportunities.forEach(opportunity => {
+        if (opportunity.followers && Array.isArray(opportunity.followers)) {
+          opportunity.followers.forEach(follower => {
+            if (follower && follower.trim()) {
+              allFollowers.add(follower.trim());
+            }
+          });
+        }
+      });
+      
+      // Convert set to sorted array
+      return Array.from(allFollowers).sort();
+    } catch (error) {
+      console.error("Error fetching all followers:", error);
+      throw error;
+    }
+  }
 };

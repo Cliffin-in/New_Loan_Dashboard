@@ -35,10 +35,11 @@ const LoanDashboard = () => {
 
   // State for filters
   const [filters, setFilters] = useState({
-    assignedUser: [], // Changed from "" to []
+    assignedUser: [],
     pipeline: [],
     pipelineStage: [],
     stage: [],
+    followers: [],
     actualClosingDateFrom: null,
     actualClosingDateTo: null,
     originalClosingDateFrom: null,
@@ -77,83 +78,6 @@ const LoanDashboard = () => {
       setIsTableLoading(false); // Remove table loading animation
     }
   };
-
-  // Function to check if today is Tuesday
-  const isTuesday = () => {
-    return new Date().getDay() === 2;
-  };
-
-  // Function to check if a record was flagged before today
-  const wasFlaggedBeforeToday = (lastModifiedDate) => {
-    if (!lastModifiedDate) return true;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const modifiedDate = new Date(lastModifiedDate);
-    modifiedDate.setHours(0, 0, 0, 0);
-
-    return modifiedDate < today;
-  };
-
-  // Function to reset Follow Up Friday flags
-  const resetFollowUpFlags = async () => {
-    try {
-      setIsTableLoading(true);
-
-      // Only get records that were flagged before today
-      const recordsToUpdate = data.filter(
-        (record) =>
-          record.followUpFriday &&
-          wasFlaggedBeforeToday(record.lastModifiedDate)
-      );
-
-      if (recordsToUpdate.length === 0) {
-        console.log("🟢 No records need resetting");
-        return;
-      }
-
-      // Update each record
-      const updatePromises = recordsToUpdate.map((record) => {
-        const updatedData = {
-          updates: {
-            followUpFriday: false,
-            lastModifiedDate: new Date().toISOString(),
-          },
-        };
-        return api.updateOpportunity(record.id, record, updatedData);
-      });
-
-      await Promise.all(updatePromises);
-
-      // Update local state, but only for records flagged before today
-      setData((prevData) =>
-        prevData.map((record) => ({
-          ...record,
-          followUpFriday:
-            record.followUpFriday &&
-            !wasFlaggedBeforeToday(record.lastModifiedDate),
-        }))
-      );
-
-      console.log(
-        "🟢 Successfully reset Follow Up Friday flags for old records"
-      );
-    } catch (error) {
-      console.error("🔴 Error resetting Follow Up Friday flags:", error);
-      setError("Failed to reset follow-up flags.");
-    } finally {
-      setIsTableLoading(false);
-    }
-  };
-
-  // Add this useEffect to check for Tuesday and reset flags
-  useEffect(() => {
-    // Only run once when the dashboard is first opened on a Tuesday
-    if (isTuesday()) {
-      resetFollowUpFlags();
-    }
-  }, []); // Only run on component mount
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -250,21 +174,23 @@ const LoanDashboard = () => {
     });
   };
 
-  const uniqueAssignedUsers = [...new Set(
-    data
-      .map(item => item.assignedUser)
-      .filter(Boolean)
-      .map(user => user.trim())
-  )]
-  .sort((a, b) => a.localeCompare(b));
+  const uniqueAssignedUsers = [
+    ...new Set(
+      data
+        .map((item) => item.assignedUser)
+        .filter(Boolean)
+        .map((user) => user.trim())
+    ),
+  ].sort((a, b) => a.localeCompare(b));
 
-  const uniquePipelines = [...new Set(
-  data
-    .map(item => item.pipeline)
-    .filter(Boolean)
-    .map(pipeline => pipeline.trim())
-)]
-.sort((a, b) => a.localeCompare(b));
+  const uniquePipelines = [
+    ...new Set(
+      data
+        .map((item) => item.pipeline)
+        .filter(Boolean)
+        .map((pipeline) => pipeline.trim())
+    ),
+  ].sort((a, b) => a.localeCompare(b));
 
   const uniquePipelineStages = [
     ...new Set(
@@ -275,13 +201,28 @@ const LoanDashboard = () => {
     ),
   ].sort((a, b) => b.localeCompare(a));
 
-  const uniqueStages = [...new Set(
-  data
-    .map(item => item.stage)
-    .filter(Boolean)
-    .map(stage => stage.trim())
-)]
-.sort((a, b) => b.localeCompare(a));
+  const uniqueStages = [
+    ...new Set(
+      data
+        .map((item) => item.stage)
+        .filter(Boolean)
+        .map((stage) => stage.trim())
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+
+  const uniqueFollowers = [
+    "[None]",
+    ...new Set(
+      data
+        .flatMap((item) => item.followers || [])
+        .filter(Boolean)
+        .map((follower) => follower.trim())
+    ),
+  ].sort((a, b) => {
+    if (a === "[None]") return -1;
+    if (b === "[None]") return 1;
+    return a.localeCompare(b);
+  });
 
   // Inside your LoanDashboard component, replace the existing date filtering logic with this:
 
@@ -404,6 +345,37 @@ const LoanDashboard = () => {
       return true;
     })();
 
+    const matchesFollowersFilter = (() => {
+      // If no followers are selected in the filter, include all records
+      if (filters.followers.length === 0) return true;
+
+      // If [None] is selected and it's the only option
+      if (
+        filters.followers.length === 1 &&
+        filters.followers.includes("[None]")
+      ) {
+        return !item.followers || item.followers.length === 0;
+      }
+
+      // If [None] is selected with other options
+      if (filters.followers.includes("[None]")) {
+        return (
+          !item.followers ||
+          item.followers.length === 0 ||
+          (item.followers &&
+            item.followers.some((follower) =>
+              filters.followers.filter((f) => f !== "[None]").includes(follower)
+            ))
+        );
+      }
+
+      // Normal case: only regular followers selected
+      return (
+        item.followers &&
+        item.followers.some((follower) => filters.followers.includes(follower))
+      );
+    })();
+
     // Combine all filters
     return (
       matchesSearch &&
@@ -419,6 +391,7 @@ const LoanDashboard = () => {
               standardizeString(item.pipelineStage)
           ))) &&
       (filters.stage.length === 0 || filters.stage.includes(item.stage)) &&
+      matchesFollowersFilter &&
       matchesActualDateFilter &&
       matchesOriginalDateFilter
     );
@@ -470,6 +443,7 @@ const LoanDashboard = () => {
       pipeline: [],
       pipelineStage: [],
       stage: [],
+      followers: [],
       actualClosingDateFrom: null,
       actualClosingDateTo: null,
       originalClosingDateFrom: null,
@@ -1042,7 +1016,7 @@ const LoanDashboard = () => {
         </div>
         {/* Date Range Filters */}
         {/* Replace the existing date range filters with this code */}
-        <div className="grid grid-cols-3 gap-4 mt-4 px-2">
+        <div className="grid grid-cols-4 gap-4 mt-4 px-2">
           {/* Actual Closing Date Range */}
           <DateRangeFilter
             label="Actual Closing Date Range"
@@ -1075,6 +1049,15 @@ const LoanDashboard = () => {
               handleFilterChange("originalClosingDateFrom", null)
             }
             onToClear={() => handleFilterChange("originalClosingDateTo", null)}
+          />
+
+          {/* Followers Filter*/}
+          <FilterSelect
+            label="Followers"
+            selectedValues={filters.followers}
+            onChange={(values) => handleFilterChange("followers", values)}
+            onClear={() => handleFilterChange("followers", [])}
+            options={uniqueFollowers}
           />
 
           {/* Reset Filters Button */}
@@ -1142,6 +1125,9 @@ const LoanDashboard = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[170px]">
                   Assigned User
+                </th>
+                <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[250px]">
+                  <SortableHeader field="followers">Followers</SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[200px]">
                   Lender
@@ -1283,6 +1269,24 @@ const LoanDashboard = () => {
                     </td>
                     <td className="px-6 py-4 text-custom border border-custom">
                       {row.assignedUser}
+                    </td>
+                    <td className="px-6 py-4 text-custom border border-custom">
+                      <div className="flex flex-wrap gap-1">
+                        {row.followers && row.followers.length > 0 ? (
+                          row.followers.map((follower, index) => (
+                            <span
+                              key={index}
+                              className="inline-block px-3 py-1 text-sm rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100 font-medium"
+                            >
+                              {follower}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="inline-block px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 font-medium">
+                            None
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-custom border border-custom">
                       {row.lender}
@@ -1491,8 +1495,23 @@ const LoanDashboard = () => {
             </Tooltip>
           </TooltipProvider>
 
-          {/* Center - Empty Space */}
-          <div className="flex-1"></div>
+          {/* Center - Record Count */}
+          <div className="flex-1 flex justify-center">
+            <span className="text-custom text-sm font-medium">
+              {searchTerm ||
+              filters.assignedUser.length > 0 ||
+              filters.pipeline.length > 0 ||
+              filters.pipelineStage.length > 0 ||
+              filters.stage.length > 0 ||
+              filters.followers.length > 0 ||
+              filters.actualClosingDateFrom ||
+              filters.actualClosingDateTo ||
+              filters.originalClosingDateFrom ||
+              filters.originalClosingDateTo
+                ? `${filteredData.length.toLocaleString()} Records Found`
+                : `Total ${data.length.toLocaleString()} Records`}
+            </span>
+          </div>
 
           {/* Right Side - Records Per Page and Pagination Controls */}
           <div className="flex items-center space-x-4">
