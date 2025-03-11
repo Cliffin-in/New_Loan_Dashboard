@@ -64,6 +64,7 @@ export const api = {
       "titleNotes",
       "followUpFriday",
       "followers",
+      "loan_type"
     ];
 
     fieldsToCheck.forEach((field) => {

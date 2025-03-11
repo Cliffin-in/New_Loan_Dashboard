@@ -43,7 +43,7 @@ const LoanDashboard = () => {
     actualClosingDateFrom: null,
     actualClosingDateTo: null,
     originalClosingDateFrom: null,
-    originalClosingDateTo: null,
+    loan_type: [],
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -224,6 +224,15 @@ const LoanDashboard = () => {
     return a.localeCompare(b);
   });
 
+  const uniqueLoanTypes = [
+    ...new Set(
+      data
+        .map((item) => item.loan_type)
+        .filter(Boolean)
+        .map((type) => type.trim())
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
   // Inside your LoanDashboard component, replace the existing date filtering logic with this:
 
   const filteredData = data.filter((item) => {
@@ -295,54 +304,15 @@ const LoanDashboard = () => {
       return true;
     })();
 
-    // Original closing date filtering
-    const itemOriginalDate = item.originalClosingDate
-      ? new Date(item.originalClosingDate)
-      : null;
-    const originalFromDate = filters.originalClosingDateFrom
-      ? getStartOfDay(filters.originalClosingDateFrom)
-      : null;
-    const originalToDate = filters.originalClosingDateTo
-      ? getEndOfDay(filters.originalClosingDateTo)
-      : null;
+    const matchesLoanTypeFilter = (() => {
+      // If no loan types are selected in the filter, include all records
+      if (filters.loan_type.length === 0) return true;
 
-    const matchesOriginalDateFilter = (() => {
-      // If no date filter is set, include all records
-      if (!originalFromDate && !originalToDate) return true;
+      // If item has no loan_type, exclude it when filter is active
+      if (!item.loan_type) return false;
 
-      // If date filter is set but item has no date, exclude it
-      if (!itemOriginalDate) return false;
-
-      // For single date filter (when from and to dates are the same)
-      if (
-        originalFromDate &&
-        originalToDate &&
-        originalFromDate.toDateString() === originalToDate.toDateString()
-      ) {
-        return (
-          itemOriginalDate.toDateString() === originalFromDate.toDateString()
-        );
-      }
-
-      // For date range
-      if (originalFromDate && originalToDate) {
-        return (
-          itemOriginalDate >= originalFromDate &&
-          itemOriginalDate <= originalToDate
-        );
-      }
-
-      // If only from date is set
-      if (originalFromDate) {
-        return itemOriginalDate >= originalFromDate;
-      }
-
-      // If only to date is set
-      if (originalToDate) {
-        return itemOriginalDate <= originalToDate;
-      }
-
-      return true;
+      // Check if the item's loan_type is in the selected filters
+      return filters.loan_type.includes(item.loan_type);
     })();
 
     const matchesFollowersFilter = (() => {
@@ -393,7 +363,7 @@ const LoanDashboard = () => {
       (filters.stage.length === 0 || filters.stage.includes(item.stage)) &&
       matchesFollowersFilter &&
       matchesActualDateFilter &&
-      matchesOriginalDateFilter
+      matchesLoanTypeFilter
     );
   });
 
@@ -446,8 +416,7 @@ const LoanDashboard = () => {
       followers: [],
       actualClosingDateFrom: null,
       actualClosingDateTo: null,
-      originalClosingDateFrom: null,
-      originalClosingDateTo: null,
+      loan_type: [],
     });
     setSearchTerm("");
     setCurrentPage(1);
@@ -1035,20 +1004,12 @@ const LoanDashboard = () => {
           />
 
           {/* Original Closing Date Range */}
-          <DateRangeFilter
-            label="Original Closing Date Range"
-            fromDate={filters.originalClosingDateFrom}
-            toDate={filters.originalClosingDateTo}
-            onFromChange={(date) =>
-              handleFilterChange("originalClosingDateFrom", date)
-            }
-            onToChange={(date) =>
-              handleFilterChange("originalClosingDateTo", date)
-            }
-            onFromClear={() =>
-              handleFilterChange("originalClosingDateFrom", null)
-            }
-            onToClear={() => handleFilterChange("originalClosingDateTo", null)}
+          <FilterSelect
+            label="Loan Type"
+            selectedValues={filters.loan_type}
+            onChange={(values) => handleFilterChange("loan_type", values)}
+            onClear={() => handleFilterChange("loan_type", [])}
+            options={uniqueLoanTypes}
           />
 
           {/* Followers Filter*/}
@@ -1114,9 +1075,7 @@ const LoanDashboard = () => {
                   </SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[250px]">
-                  <SortableHeader field="originalClosingDate">
-                    Original Closing Date
-                  </SortableHeader>
+                  <SortableHeader field="loan_type">Loan Type</SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[220px]">
                   <SortableHeader field="monetaryValue">
@@ -1261,8 +1220,8 @@ const LoanDashboard = () => {
                     <td className="px-6 py-4 text-custom border border-custom">
                       {row.actualClosingDate}
                     </td>
-                    <td className="px-6 py-4 text-custom border border-custom">
-                      {row.originalClosingDate}
+                    <td className="px-6 py-3 text-custom border border-custom">
+                      {row.loan_type}
                     </td>
                     <td className="px-6 py-4 text-custom border border-custom">
                       ${row.monetaryValue}
