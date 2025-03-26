@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Pencil, Eye, ArrowUpDown, Sun, Moon } from "lucide-react";
+import { Pencil, Eye, ArrowUpDown, Sun, Moon, FileText } from "lucide-react";
 import { Select } from "./components/ui/select";
 import FilterSelect from "./FilterSelect";
 import DateRangeFilter from "./DateRangeFilter";
 import SearchField from "./SearchField";
 import { useAccess } from "./AccessControl";
 import DatePicker from "react-datepicker";
+import TermSheetModal from "./TermSheetModal";
 import "react-datepicker/dist/react-datepicker.css";
 import "./index.css";
 import {
@@ -15,12 +16,11 @@ import {
   TooltipTrigger,
 } from "./components/ui/tooltip";
 import { api } from "./services/api";
-// import { data as initialData } from "./data/loanData";
+import { pdfService } from "./services/pdfService";
 
 const standardizeString = (str) => str?.trim().toLowerCase();
 
 const LoanDashboard = () => {
-  // const [data, setData] = useState(initialData);
   const { permissions } = useAccess();
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +57,9 @@ const LoanDashboard = () => {
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
 
+  const [isTermSheetModalOpen, setIsTermSheetModalOpen] = useState(false);
+  const [termSheetData, setTermSheetData] = useState(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -72,7 +75,6 @@ const LoanDashboard = () => {
       setData(opportunities);
     } catch (error) {
       setTableError("⚠️ Failed to load opportunities. Please try again.");
-      console.error("🔴 Error loading data:", error);
     } finally {
       setIsLoading(false); // Remove full-screen loading
       setIsTableLoading(false); // Remove table loading animation
@@ -88,38 +90,62 @@ const LoanDashboard = () => {
 
   // Handle save in EditModal
   const handleSave = async (id, originalData, updatedData) => {
-    console.log(
-      "🟢 handleSave in LoanDashboard triggered with:",
-      id,
-      updatedData
-    );
-
     try {
-      setIsLoading(true);
-
       // Ensure API function exists
       if (!api || !api.updateOpportunity) {
-        console.error("🔴 API function is undefined!");
-        return;
+        return false;
       }
 
+      // Make the API call
       await api.updateOpportunity(id, originalData, updatedData);
 
-      console.log("🟢 API request sent successfully");
-
-      const updatedRowData = await api.getOpportunityById(id);
-
       setData((prevData) =>
-        prevData.map((item) => (item.id === id ? updatedRowData : item))
+        prevData.map((item) => {
+          if (item.id === id) {
+            // Apply the updates to the existing item
+            if (updatedData.updates) {
+              // Create a copy of the item and apply updates
+              const updatedItem = { ...item };
+              Object.keys(updatedData.updates).forEach((key) => {
+                updatedItem[key] = updatedData.updates[key];
+              });
+              return updatedItem;
+            }
+          }
+          return item;
+        })
       );
 
-      setIsEditModalOpen(false);
+      return true; // Return true to indicate success
     } catch (error) {
-      console.error("🔴 Error in LoanDashboard handleSave:", error);
       setError("Failed to update opportunity. Please try again.");
+      return false;
+    }
+  };
+
+  // Handle save in TermSheetModal
+  const handleSaveTermSheet = async (payload) => {
+    try {
+      setIsLoading(true);
+      const response = await api.saveTermSheet(payload);
+      return response;
+    } catch (error) {
+      setError("Failed to save term sheet. Please try again.");
+      // Could log to monitoring service here
+      return { success: false, error: error.message };
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle generate PDF
+  const handleGeneratePdf = (termSheetData) => {
+    try {
+      const result = pdfService.generateTermSheetPdf(termSheetData);
+      if (result.success) {
+      } else {
+      }
+    } catch (error) {}
   };
 
   useEffect(() => {
@@ -462,20 +488,59 @@ const LoanDashboard = () => {
     return `${baseUrl}${queryString ? "?" + queryString : ""}`;
   };
 
+  // Replace the entire EditModal component in your LoanDashboard.jsx with this version
+
+  // Replace the entire EditModal component with this simplified version
+
   const EditModal = ({ isOpen, onClose, data, uniqueStages, onSave }) => {
-    const [editedData, setEditedData] = useState(data);
+    const [editedData, setEditedData] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
-    const [originalData, setOriginalData] = useState(null);
     const [pipelineData, setPipelineData] = useState([]);
     const [availablePipelineStages, setAvailablePipelineStages] = useState([]);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [timerRef] = useState({ current: null });
 
+    // Split the loading and success states
+    const [isLoading, setIsLoading] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
+
+    // Initialize form data when modal opens
+    useEffect(() => {
+      if (isOpen && data) {
+        // Create deep copies to avoid reference issues
+        const dataCopy = JSON.parse(JSON.stringify(data));
+        setEditedData(dataCopy);
+        setError(null);
+        setHasUnsavedChanges(false);
+        setShowSuccess(false);
+      }
+    }, [isOpen, data]);
+
+    // Check for unsaved changes whenever editedData changes
+    useEffect(() => {
+      if (data && editedData) {
+        const hasChanges =
+          editedData.pipelineStage !== data.pipelineStage ||
+          editedData.stage !== data.stage ||
+          editedData.actualClosingDate !== data.actualClosingDate ||
+          editedData.followUpFriday !== data.followUpFriday ||
+          editedData.dealNotes !== data.dealNotes ||
+          editedData.appraisalNotes !== data.appraisalNotes ||
+          editedData.insuranceNotes !== data.insuranceNotes ||
+          editedData.titleNotes !== data.titleNotes;
+
+        setHasUnsavedChanges(hasChanges);
+      }
+    }, [editedData, data]);
+
+    // Fetch pipeline stages when needed
     useEffect(() => {
       const fetchPipelineData = async () => {
+        if (!isOpen || !editedData?.pipeline) return;
+
         try {
           const response = await api.getPipelineStages();
-          console.log("🔹 Pipeline Data Response:", response);
-
           if (!response || !response.pipelines) {
             throw new Error("No pipeline data found.");
           }
@@ -483,173 +548,219 @@ const LoanDashboard = () => {
           const formattedPipelines = response.pipelines.map((pipeline) => {
             const pipelineName = Object.keys(pipeline)[0];
             const stages = pipeline[pipelineName].map((stage) => ({
-              id: stage.id, // Ensure ID is included
+              id: stage.id,
               name: stage.name,
             }));
-
             return { name: pipelineName, stages };
           });
 
           setPipelineData(formattedPipelines);
 
-          // Find the currently selected pipeline stages
           const currentPipeline = formattedPipelines.find(
             (p) => p.name === editedData.pipeline
           );
 
           if (currentPipeline) {
-            console.log("🟢 Found Pipeline Stages:", currentPipeline.stages);
             setAvailablePipelineStages(currentPipeline.stages);
           } else {
-            console.error("❌ No matching pipeline found.");
             setAvailablePipelineStages([]);
           }
         } catch (err) {
-          console.error("🔴 Error fetching pipeline stages:", err);
           setError(
             "Failed to load pipeline stages. Please check API connection."
           );
         }
       };
 
-      if (isOpen && editedData) {
-        fetchPipelineData();
-      }
+      fetchPipelineData();
     }, [isOpen, editedData?.pipeline]);
 
-    // Reset form when modal opens with new data
+    // Clean up any timer on unmount
     useEffect(() => {
-      if (data) {
-        setEditedData(data);
-        setOriginalData(data);
-        setError(null);
-      }
-    }, [data]);
+      return () => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+        }
+      };
+    }, [timerRef]);
 
     if (!isOpen || !data) return null;
 
+    // Handle save function with simplified success handling
     const handleSave = async () => {
-      console.log("🟢 handleSave function triggered");
+      // Check for changes
+      if (!hasUnsavedChanges) {
+        setError("No changes detected. Please make changes before saving.");
+        return;
+      }
 
       try {
+        // Start loading state
+        setIsLoading(true);
         setIsSaving(true);
+        setShowSuccess(false);
         setError(null);
 
-        console.log("🔹 Original Data:", originalData);
-        console.log("🔹 Edited Data:", editedData);
+        // Build updates object
+        const updates = {};
 
-        let updates = {};
+        if (editedData.pipelineStage !== data.pipelineStage) {
+          const selectedStage = availablePipelineStages.find(
+            (stage) => stage.name === editedData.pipelineStage
+          );
 
-        if (editedData.pipelineStage !== originalData.pipelineStage) {
-          console.log("🔹 Pipeline Stage Changed:", editedData.pipelineStage);
-
-          // Ensure availablePipelineStages is populated
-          if (
-            !availablePipelineStages ||
-            availablePipelineStages.length === 0
-          ) {
-            console.warn("⚠️ No available pipeline stages found.");
-          } else {
-            const selectedStage = availablePipelineStages.find(
-              (stage) => stage.name === editedData.pipelineStage
-            );
-
-            if (selectedStage) {
-              console.log(
-                "🟢 Found Matching Pipeline Stage ID:",
-                selectedStage.id
-              );
-              updates.pipelineStage = editedData.pipelineStage;
-              updates.pipelineStageId = selectedStage.id; // ✅ Assign the correct ID
-            } else {
-              console.warn("⚠️ No matching pipeline stage found!");
-            }
+          if (selectedStage) {
+            updates.pipelineStage = editedData.pipelineStage;
+            updates.pipelineStageId = selectedStage.id;
           }
         }
 
-        if (editedData.stage !== originalData.stage) {
-          console.log("🔹 Stage Changed:", editedData.stage);
-          updates.stage = editedData.stage;
-        }
-        if (editedData.actualClosingDate !== originalData.actualClosingDate) {
-          console.log(
-            "🔹 Actual Closing Date Changed:",
-            editedData.actualClosingDate
-          );
+        if (editedData.stage !== data.stage) updates.stage = editedData.stage;
+        if (editedData.actualClosingDate !== data.actualClosingDate)
           updates.actualClosingDate = editedData.actualClosingDate;
-        }
-        if (editedData.followUpFriday !== originalData.followUpFriday) {
-          console.log(
-            "🔹 Follow Up Friday Changed:",
-            editedData.followUpFriday
-          );
+        if (editedData.followUpFriday !== data.followUpFriday)
           updates.followUpFriday = editedData.followUpFriday;
-        }
-        if (editedData.dealNotes !== originalData.dealNotes) {
-          console.log("🔹 Deal Notes Changed:", editedData.dealNotes);
+        if (editedData.dealNotes !== data.dealNotes)
           updates.dealNotes = editedData.dealNotes;
-        }
-        if (editedData.appraisalNotes !== originalData.appraisalNotes) {
-          console.log("🔹 Appraisal Notes Changed:", editedData.appraisalNotes);
+        if (editedData.appraisalNotes !== data.appraisalNotes)
           updates.appraisalNotes = editedData.appraisalNotes;
-        }
-        if (editedData.insuranceNotes !== originalData.insuranceNotes) {
-          console.log("🔹 Insurance Notes Changed:", editedData.insuranceNotes);
+        if (editedData.insuranceNotes !== data.insuranceNotes)
           updates.insuranceNotes = editedData.insuranceNotes;
-        }
-        if (editedData.titleNotes !== originalData.titleNotes) {
-          console.log("🔹 Title Notes Changed:", editedData.titleNotes);
+        if (editedData.titleNotes !== data.titleNotes)
           updates.titleNotes = editedData.titleNotes;
-        }
 
-        console.log("🟢 Final Updates Object:", updates);
-
-        if (Object.keys(updates).length === 0) {
-          console.warn("⚠️ No changes detected, skipping API request.");
-          setIsSaving(false);
-          return;
-        }
-
+        // Prepare payload for API
         const payload = {
           id: data.id,
-          pipeline: originalData.pipeline,
+          pipeline: data.pipeline,
           updates: updates,
         };
 
-        console.log(
-          "🟢 API Request Payload:",
-          JSON.stringify(payload, null, 2)
-        );
+        // Call save function - this triggers the parent component's handleSave
+        const saveResult = await onSave(data.id, data, payload);
 
-        await onSave(data.id, originalData, payload);
+        // Stop loading overlay
+        setIsLoading(false);
 
-        console.log("🟢 handleSave executed successfully");
+        if (saveResult) {
+          // Update data reference
+          Object.keys(updates).forEach((key) => {
+            if (data[key] !== undefined) {
+              data[key] = updates[key];
+            }
+          });
 
-        onClose();
+          // Set success first
+          setShowSuccess(true);
+          console.log("Setting success message");
+
+          // Reset unsaved changes flag
+          setHasUnsavedChanges(false);
+
+          // Keep save button disabled temporarily
+          // to prevent double-clicking and give time to see the message
+          timerRef.current = setTimeout(() => {
+            setIsSaving(false);
+            // Do NOT clear success here - leave it visible
+          }, 2000);
+
+          // Only clear success message after a longer delay
+          setTimeout(() => {
+            setShowSuccess(false);
+          }, 5000);
+        } else {
+          setError("Failed to save changes. Please try again.");
+          setIsSaving(false);
+        }
       } catch (err) {
-        console.error("🔴 Error in handleSave:", err);
+        console.error("Save error:", err);
         setError("Failed to save changes. Please try again.");
-      } finally {
+        setIsLoading(false);
         setIsSaving(false);
       }
+    };
+
+    // Handle close with confirmation for unsaved changes
+    const handleClose = () => {
+      if (hasUnsavedChanges) {
+        const confirmClose = window.confirm(
+          "You have unsaved changes. Are you sure you want to close without saving?"
+        );
+        if (!confirmClose) return;
+      }
+
+      // Clear any pending timer when closing
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+
+      onClose();
     };
 
     return (
       <div className="modal-backdrop">
         <div className="modal-container">
-          {/* Fixed Header */}
+          {/* Header */}
           <div className="modal-header">
             <h2 className="text-xl text-custom">Edit Record Details</h2>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 mb-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {/* Messages Section - IMPROVED VISIBILITY */}
+          {error && !error.includes("Failed to") && (
+            <div className="p-3 mx-4 mt-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
               {error}
             </div>
           )}
 
-          {/* Scrollable Content */}
+          {error && error.includes("Failed to") && (
+            <div className="p-3 mx-4 mt-4 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
+
+          {/* Explicit success message */}
+          {showSuccess && (
+            <div
+              className="p-4 mx-4 mt-4 bg-green-100 dark:bg-green-900 border-2 border-green-500 text-green-800 dark:text-green-100 rounded flex items-center justify-center"
+              style={{ fontSize: "16px", fontWeight: "bold" }}
+            >
+              <svg
+                className="w-6 h-6 text-green-600 dark:text-green-400 mr-2 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5 13l4 4L19 7"
+                ></path>
+              </svg>
+              <span>Changes saved successfully!</span>
+            </div>
+          )}
+
+          {/* Loading Overlay */}
+          {isLoading && (
+            <div className="fixed inset-0 z-[9999]">
+              <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center max-w-sm">
+                  <div className="animate-spin w-12 h-12 border-4 border-t-blue-500 border-b-blue-500 border-r-transparent border-l-transparent rounded-full mx-auto mb-4"></div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Saving...
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Please wait while your changes are being saved
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Form content */}
           <div className="modal-content">
             {/* Read-only Fields */}
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -657,7 +768,7 @@ const LoanDashboard = () => {
                 <label className="block text-custom mb-2">Name</label>
                 <input
                   type="text"
-                  value={editedData.name}
+                  value={editedData.name || ""}
                   readOnly
                   className="modal-input"
                 />
@@ -668,7 +779,7 @@ const LoanDashboard = () => {
                 </label>
                 <input
                   type="text"
-                  value={editedData.opportunityName}
+                  value={editedData.opportunityName || ""}
                   readOnly
                   className="modal-input"
                 />
@@ -691,6 +802,7 @@ const LoanDashboard = () => {
                         pipelineStage: e.target.value,
                       })
                     }
+                    disabled={isSaving}
                   >
                     {availablePipelineStages.length > 0 ? (
                       availablePipelineStages.map((stage) => (
@@ -714,6 +826,7 @@ const LoanDashboard = () => {
                       })
                     }
                     className="input-custom w-full"
+                    disabled={isSaving}
                   >
                     {uniqueStages
                       .filter((stage) => stage && stage.trim() !== "")
@@ -748,6 +861,7 @@ const LoanDashboard = () => {
                     }
                     className="w-full bg-[#161b22] text-custom border-custom rounded-md p-2"
                     dateFormat="yyyy-MM-dd"
+                    disabled={isSaving}
                   />
                 </div>
                 <div className="flex items-end">
@@ -762,6 +876,7 @@ const LoanDashboard = () => {
                         })
                       }
                       className="h-4 w-4 rounded border-gray-300 bg-[#161b22] text-[#238636] focus:ring-[#238636]"
+                      disabled={isSaving}
                     />
                     Follow Up Friday
                   </label>
@@ -787,6 +902,7 @@ const LoanDashboard = () => {
                     }
                     className="modal-input modal-textarea"
                     placeholder={`Enter ${label.toLowerCase()}...`}
+                    disabled={isSaving}
                   />
                 </div>
               ))}
@@ -795,8 +911,12 @@ const LoanDashboard = () => {
 
           {/* Action Buttons */}
           <div className="modal-footer">
-            <button onClick={onClose} className="btn-base" disabled={isSaving}>
-              Cancel
+            <button
+              onClick={handleClose}
+              className="btn-base"
+              disabled={isSaving}
+            >
+              Close
             </button>
             <button
               onClick={handleSave}
@@ -1202,6 +1322,18 @@ const LoanDashboard = () => {
                         >
                           <Eye className="w-4 h-4 text-white" />
                         </a>
+                        {permissions.canEdit && (
+                          <button
+                            className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
+                            onClick={() => {
+                              setTermSheetData(row);
+                              setIsTermSheetModalOpen(true);
+                            }}
+                            title="Term Sheet"
+                          >
+                            <FileText className="w-4 h-4 text-white" />
+                          </button>
+                        )}
                       </div>
                     </td>
                     {/* Remaining cells */}
@@ -1547,6 +1679,12 @@ const LoanDashboard = () => {
             : undefined
         }
         showEditButton={permissions.canEdit}
+      />
+
+      <TermSheetModal
+        isOpen={isTermSheetModalOpen}
+        onClose={() => setIsTermSheetModalOpen(false)}
+        data={termSheetData}
       />
     </div>
   );

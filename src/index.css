@@ -617,3 +617,16 @@ td[data-follow-up-checked="true"] {
   background-color: #374151; /* dark gray */
   color: #d1d5db; /* light gray */
 }
+
+.fade-out {
+  animation: fadeOut 0.5s ease-out forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
