@@ -319,24 +319,41 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
       return;
     }
     
-    // Get the opportunity ID
-    const opportunityId = termSheetData.opportunity || data.ghl_id || data.id;
+    // Get the opportunity ID - ensure it's a string, not an object
+    let opportunityId = "";
     
-    // Check if we have a valid opportunity ID
-    if (!opportunityId) {
-      setError("Could not determine opportunity ID for PDF generation.");
+    // Try to get opportunity ID from termSheetData first
+    if (typeof termSheetData.opportunity === 'string') {
+      opportunityId = termSheetData.opportunity;
+    } 
+    // If it's an object, try to get the id from it
+    else if (typeof termSheetData.opportunity === 'object' && termSheetData.opportunity) {
+      opportunityId = termSheetData.opportunity.id || termSheetData.opportunity.ghl_id || "";
+    }
+    // Fallback to data object if needed
+    else {
+      opportunityId = data.ghl_id || data.id || "";
+    }
+    
+    // Ensure opportunityId is actually a string value
+    if (!opportunityId || typeof opportunityId !== 'string') {
+      setError("Invalid opportunity ID for PDF generation.");
+      console.error("Invalid opportunity ID:", opportunityId);
       return;
     }
 
+    console.log("Using opportunity ID for PDF generation:", opportunityId);
+    
     setIsGeneratingPdf(true);
     setError(null);
     setSuccess(null);
 
     try {
-      console.log(`Sending PDF generation request for opportunity ID: ${opportunityId}`);
+      // Always use the direct API endpoint for PDF generation with the string ID
+      const pdfEndpoint = `https://link.kicknsaas.com/api/termdata/${opportunityId}/generate_pdf/`;
+      console.log(`Sending PDF generation request to: ${pdfEndpoint}`);
       
-      // Always use the direct API endpoint for PDF generation with a blank POST request
-      const result = await axios.post(`https://link.kicknsaas.com/api/termdata/${opportunityId}/generate_pdf/`);
+      const result = await axios.post(pdfEndpoint);
       console.log("PDF generation response:", result);
 
       if (result.data) {
