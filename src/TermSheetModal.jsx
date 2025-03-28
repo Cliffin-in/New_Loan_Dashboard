@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { termSheetService } from "./services/termSheetService";
 import { pdfService } from "./services/pdfService";
+import axios from "axios";
 
 const TermSheetModal = ({ isOpen, onClose, data }) => {
   const [termSheetData, setTermSheetData] = useState({
@@ -48,6 +49,10 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
     currentDscr: "",
   });
 
+  // Reference to store original data for comparison
+  const originalDataRef = useRef({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -60,6 +65,8 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
       // Clear any previous error or success messages
       setError(null);
       setSuccess(null);
+      // Initially set to false - we'll detect if there are actual changes later
+      setHasUnsavedChanges(false);
       loadTermSheetData();
     }
   }, [isOpen, data?.id]);
@@ -79,7 +86,7 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
       if (result.success) {
         // We found term data, load it and convert snake_case to camelCase
         const apiData = result.data;
-        setTermSheetData({
+        const loadedData = {
           // Map the API response data to our form fields
           borrower: apiData.borrower || "",
           propertyAddress: apiData.property_address || "",
@@ -126,10 +133,14 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
 
           // If there's term sheet data with a PDF file, store the URL
           term_sheet: apiData.term_sheet,
-        });
+        };
+        
+        setTermSheetData(loadedData);
+        // Store original data for comparison to detect changes
+        originalDataRef.current = JSON.parse(JSON.stringify(loadedData));
       } else {
         // No term data found, initialize with data from the opportunity
-        setTermSheetData({
+        const initialData = {
           // Reset all fields to initial values
           borrower: data.name || "",
           propertyAddress: data.opportunityName || "",
@@ -171,7 +182,11 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
           annualFloodInsurance: "",
           annualHoaDues: "",
           currentDscr: "",
-        });
+        };
+        
+        setTermSheetData(initialData);
+        // Store original data for comparison to detect changes
+        originalDataRef.current = JSON.parse(JSON.stringify(initialData));
       }
     } catch (error) {
       setError("Failed to load term sheet data.");
@@ -181,12 +196,33 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
     }
   };
 
+  // Track if any changes have been made to the form
+  const [formTouched, setFormTouched] = useState(false);
+
+  // Update original data reference after loading
+  useEffect(() => {
+    if (!isLoading && termSheetData) {
+      originalDataRef.current = JSON.parse(JSON.stringify(termSheetData));
+    }
+  }, [isLoading, termSheetData]);
+
   // Handle form input changes
   const handleInputChange = (field, value) => {
+    setFormTouched(true);
+    
     setTermSheetData({
       ...termSheetData,
       [field]: value,
     });
+    
+    // Compare with original data to detect actual changes
+    const updatedData = {
+      ...termSheetData,
+      [field]: value,
+    };
+    
+    const hasChanges = JSON.stringify(updatedData) !== JSON.stringify(originalDataRef.current);
+    setHasUnsavedChanges(hasChanges);
   };
 
   // Handle save button click
@@ -246,6 +282,17 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
           term_sheet: result.data.term_sheet || null,
         }));
 
+        // Update original data reference to match current state
+        originalDataRef.current = JSON.parse(JSON.stringify({
+          ...termSheetData,
+          id: result.data.id,
+          term_sheet: result.data.term_sheet || null,
+        }));
+        
+        // Mark as saved - reset both flags
+        setHasUnsavedChanges(false);
+        setFormTouched(true); // Form has been touched, but no unsaved changes
+        
         setSuccess("Term sheet saved successfully!");
       } else {
         setError(result.message || "Failed to save term sheet.");
@@ -260,9 +307,24 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
 
   // Handle generate PDF button click
   const handleGeneratePdf = async () => {
-    // Check if we have the term sheet ID (either from loaded data or from a recent save)
-    if (!termSheetData.id) {
-      setError("Please save the term sheet before generating a PDF.");
+    // Check if form has been touched but not saved
+    if (formTouched && hasUnsavedChanges) {
+      setError("UNSAVED CHANGES - PLEASE SAVE");
+      return;
+    }
+    
+    // If form hasn't been touched at all
+    if (!formTouched) {
+      setError("NO CHANGES FOUND ON DATA");
+      return;
+    }
+    
+    // Get the opportunity ID
+    const opportunityId = termSheetData.opportunity || data.ghl_id || data.id;
+    
+    // Check if we have a valid opportunity ID
+    if (!opportunityId) {
+      setError("Could not determine opportunity ID for PDF generation.");
       return;
     }
 
@@ -271,34 +333,25 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
     setSuccess(null);
 
     try {
-      // If we already have a term sheet with a PDF file, open it directly
-      if (termSheetData.term_sheet && termSheetData.term_sheet.pdf_file) {
-        window.open(termSheetData.term_sheet.pdf_file, "_blank");
-        setSuccess("PDF opened successfully!");
-      } else {
-        // Otherwise generate a new PDF
-        const result = await termSheetService.generatePdf(termSheetData.id);
+      console.log(`Sending PDF generation request for opportunity ID: ${opportunityId}`);
+      
+      // Always use the direct API endpoint for PDF generation with a blank POST request
+      const result = await axios.post(`https://link.kicknsaas.com/api/termdata/${opportunityId}/generate_pdf/`);
+      console.log("PDF generation response:", result);
 
-        if (result.success) {
-          // If there's a new PDF URL, store it in the state
-          if (result.data && result.data.pdf_url) {
-            setTermSheetData((prevData) => ({
-              ...prevData,
-              term_sheet: {
-                ...prevData.term_sheet,
-                pdf_file: result.data.pdf_url,
-              },
-            }));
-          }
-
-          setSuccess("PDF generated successfully!");
-        } else {
-          setError(result.message || "Failed to generate PDF.");
+      if (result.data) {
+        // If there's a PDF URL returned, open it in a new tab
+        if (result.data.pdf_url) {
+          window.open(result.data.pdf_url, '_blank');
         }
+        
+        setSuccess("PDF generated successfully!");
+      } else {
+        setError("Failed to generate PDF.");
       }
     } catch (error) {
-      setError("An unexpected error occurred while generating PDF.");
-      console.error(error);
+      console.error("PDF generation error:", error);
+      setError(`Error generating PDF: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -332,6 +385,8 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
             {success}
           </div>
         )}
+        
+        {/* Removed the unsaved changes indicator from here as it's now handled by the error message */}
 
         {/* Form fields */}
         <div className="modal-content">
@@ -528,6 +583,8 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
             </div>
           </div>
 
+          {/* Rest of the form fields... */}
+          {/* (Preserving all the other form fields unchanged) */}
           {/* Loan Fees Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-custom mb-3 pb-1 border-b border-custom">
@@ -817,9 +874,7 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
           <button
             onClick={handleGeneratePdf}
             className="btn-base bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700"
-            disabled={
-              isLoading || isSaving || isGeneratingPdf || !termSheetData.id
-            }
+            disabled={isLoading || isSaving || isGeneratingPdf}
           >
             {isGeneratingPdf ? (
               <span className="flex items-center">

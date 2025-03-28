@@ -143,12 +143,13 @@ export const termSheetService = {
     }
   },
 
-  // Generate PDF from term sheet data
-  generatePdf: async (termSheetId) => {
+  // Generate PDF from term sheet data - uses opportunity ID directly
+  generatePdf: async (opportunityId) => {
     try {
-      console.log("Generating PDF for term sheet ID:", termSheetId);
-      // This endpoint would trigger PDF generation on the server
-      const response = await axios.post(`${API_BASE_URL}/termdata/${termSheetId}/generate_pdf/`);
+      console.log("Generating PDF for opportunity ID:", opportunityId);
+      
+      // Send a blank POST request to the PDF generation endpoint
+      const response = await axios.post(`${API_BASE_URL}/termdata/${opportunityId}/generate_pdf/`);
       
       console.log("PDF generation response:", response.data);
       
