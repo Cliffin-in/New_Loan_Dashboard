@@ -1,153 +1,177 @@
 // services/termSheetService.js
+import axios from 'axios';
 
-const TERM_DATA_API_URL = "/api/termdata/";
-const TERM_SHEET_API_URL = "/api/termsheet/";
+const API_BASE_URL = 'https://link.kicknsaas.com/api';
 
 export const termSheetService = {
-  // Get term data by opportunity ID
-  async getByOpportunityId(opportunityId) {
+  // Get term sheet data by opportunity ID (using GHL ID)
+  getByOpportunityId: async (opportunityId) => {
     try {
-      // Look up term data for this opportunity
-      const response = await fetch(
-        `${TERM_DATA_API_URL}?opportunity__ghl_id=${opportunityId}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch term data: ${response.status}`);
+      console.log("Fetching term sheet for opportunity ID:", opportunityId);
+      
+      // Direct request using the exact URL format with trailing slash
+      try {
+        const directResponse = await axios.get(`${API_BASE_URL}/termdata/${opportunityId}/`);
+        
+        if (directResponse.data) {
+          console.log("Found term sheet data:", directResponse.data);
+          return {
+            success: true,
+            data: directResponse.data,
+          };
+        }
+      } catch (directError) {
+        console.error("Direct fetch error:", directError.message);
+        
+        // Fallback to filter approach if direct approach fails
+        try {
+          console.log("Trying alternate approach with filter query");
+          const queryResponse = await axios.get(`${API_BASE_URL}/termdata/?opportunity=${opportunityId}`);
+          
+          // Check if we have data for this opportunity
+          if (queryResponse.data.results && queryResponse.data.results.length > 0) {
+            console.log("Found term sheet data via filter:", queryResponse.data.results[0]);
+            return {
+              success: true,
+              data: queryResponse.data.results[0], // Return the first matching term sheet
+            };
+          } else {
+            console.log("No term sheet data found for this opportunity");
+            return {
+              success: false,
+              message: 'No term sheet data found for this opportunity.',
+            };
+          }
+        } catch (queryError) {
+          console.error("Filter query error:", queryError.message);
+          console.error("Full error details:", queryError.response || queryError);
+          return {
+            success: false,
+            message: 'Failed to fetch term sheet data.',
+            error: queryError,
+          };
+        }
       }
+    } catch (error) {
+      console.error("Error in getByOpportunityId:", error);
+      return {
+        success: false,
+        message: 'Failed to fetch term sheet data.',
+        error,
+      };
+    }
+    
+    // If we reach here, no data was found
+    return {
+      success: false,
+      message: 'No term sheet data found for this opportunity.',
+    };
+  },
 
-      const data = await response.json();
-
-      // If we found term data for this opportunity
-      if (data.results && data.results.length > 0) {
-        // Return the first one (assuming one term sheet per opportunity)
+  // Create a new term sheet
+  createTermSheet: async (termSheetData) => {
+    try {
+      // Extract the GHL ID - make sure we're getting it correctly
+      let opportunityId;
+      if (typeof termSheetData.opportunity === 'object') {
+        opportunityId = termSheetData.opportunity.ghl_id || termSheetData.opportunity.id;
+        console.log("Extracted GHL ID from object:", opportunityId);
+      } else {
+        opportunityId = termSheetData.opportunity;
+        console.log("Using provided opportunity ID:", opportunityId);
+      }
+      
+      // Use opportunityId directly in the API paths
+      termSheetData.opportunity = opportunityId;
+      
+      console.log("Saving data to API:", termSheetData);
+      console.log("API URL for checking existing:", `${API_BASE_URL}/termdata/${opportunityId}/`);
+      
+      // First check if a term sheet already exists for this opportunity
+      let existingData;
+      try {
+        // Try to get existing term sheet data directly with the specified URL format (with trailing slash)
+        const existingResponse = await axios.get(`${API_BASE_URL}/termdata/${opportunityId}/`);
+        existingData = {
+          success: true,
+          data: existingResponse.data
+        };
+      } catch (checkError) {
+        console.log("No existing term sheet found or error checking:", checkError.message);
+        existingData = { success: false };
+      }
+      
+      // If it exists, update it with PUT
+      if (existingData.success && existingData.data) {
+        console.log("Updating existing term sheet with opportunity ID:", opportunityId);
+        
+        // Use the exact URL format you specified for PUT requests WITH trailing slash
+        const updateResponse = await axios.put(
+          `${API_BASE_URL}/termdata/${opportunityId}/`, 
+          termSheetData
+        );
+        
+        console.log("Update response:", updateResponse.data);
         return {
           success: true,
-          data: data.results[0],
+          data: updateResponse.data,
+          message: 'Term sheet updated successfully.',
         };
-      } else {
-        // No term data found for this opportunity
+      } 
+      
+      // If it doesn't exist, create it with POST
+      else {
+        console.log("Creating new term sheet");
+        const createResponse = await axios.post(`${API_BASE_URL}/termdata/`, termSheetData);
+        
+        console.log("Create response:", createResponse.data);
         return {
-          success: false,
-          message: "No term sheet found",
+          success: true,
+          data: createResponse.data,
+          message: 'Term sheet created successfully.',
         };
       }
     } catch (error) {
-      console.error("Error fetching term sheet:", error);
+      console.error("Error saving term sheet data:", error.message);
+      console.error("Error details:", error.response?.data || "No response data");
+      console.error("Request that failed:", error.config);
       return {
         success: false,
-        message: "Error fetching term sheet: " + error.message,
+        message: `Failed to save term sheet data: ${error.message}`,
+        error,
       };
     }
   },
 
-  // Create a new term data record
-  async createTermSheet(termData) {
+  // Generate PDF from term sheet data
+  generatePdf: async (termSheetId) => {
     try {
-      console.log("Creating term sheet with data:", termData);
-
-      const response = await fetch(TERM_DATA_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(termData),
-      });
-
-      // Check response and parse for more details
-      if (!response.ok) {
-        const errorText = await response.json();
-        console.error(
-          "Server error response:",
-          response.status,
-          JSON.stringify(errorText)
-        );
-
-        // Get a readable error message for UI display
-        let errorMessage = "Failed to create term sheet: " + response.status;
-        if (errorText && typeof errorText === "object") {
-          const errors = Object.entries(errorText)
-            .map(([field, message]) => `${field}: ${message}`)
-            .join(", ");
-          errorMessage += ` - ${errors}`;
-        }
-
-        throw new Error(errorMessage);
+      console.log("Generating PDF for term sheet ID:", termSheetId);
+      // This endpoint would trigger PDF generation on the server
+      const response = await axios.post(`${API_BASE_URL}/termdata/${termSheetId}/generate_pdf/`);
+      
+      console.log("PDF generation response:", response.data);
+      
+      if (response.data && response.data.pdf_url) {
+        // If the API returns a PDF URL, open it in a new tab
+        window.open(response.data.pdf_url, '_blank');
       }
-
-      const data = await response.json();
+      
       return {
         success: true,
-        data: data,
+        data: response.data,
+        message: 'PDF generated successfully.',
       };
     } catch (error) {
-      console.error("Error creating term sheet:", error);
+      console.error("Error generating PDF:", error.message);
+      console.error("Error details:", error.response?.data || "No response data");
       return {
         success: false,
-        message: error.message || "Error creating term sheet",
+        message: `Failed to generate PDF: ${error.message}`,
+        error,
       };
     }
-  },
-
-  // Update an existing term data record
-  async updateTermSheet(termSheetId, termData) {
-    try {
-      const response = await fetch(`${TERM_DATA_API_URL}${termSheetId}/`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(termData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update term sheet: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return {
-        success: true,
-        data: data,
-      };
-    } catch (error) {
-      console.error("Error updating term sheet:", error);
-      return {
-        success: false,
-        message: "Error updating term sheet: " + error.message,
-      };
-    }
-  },
-
-  // Generate PDF for term sheet
-  async generatePdf(termDataId) {
-    try {
-      // Send request to generate PDF by creating a term sheet record
-      const response = await fetch(TERM_SHEET_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          term_data: termDataId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate PDF: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return {
-        success: true,
-        data: data,
-        message: "PDF generated successfully",
-      };
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      return {
-        success: false,
-        message: "Error generating PDF: " + error.message,
-      };
-    }
-  },
+  }
 };
+
+export default termSheetService;

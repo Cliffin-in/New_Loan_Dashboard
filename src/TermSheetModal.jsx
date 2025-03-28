@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { termSheetService } from "./services/termSheetService";
-import { api } from "./services/api";
+import { pdfService } from "./services/pdfService";
 
-const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
+const TermSheetModal = ({ isOpen, onClose, data }) => {
   const [termSheetData, setTermSheetData] = useState({
     // Deal Info
     borrower: "",
     propertyAddress: "",
+    property_address: "", // Keep both formats for compatibility
 
     // Deal Structure
     loanPurpose: "",
@@ -18,6 +19,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
 
     // Loan Terms
     loanType: "",
+    loan_type: "", // Keep both formats for compatibility
     interestRate: "",
     monthlyPayment: "",
     prePaymentPenalty: "",
@@ -51,7 +53,6 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [termSheetId, setTermSheetId] = useState(null);
 
   // Load term sheet data when modal opens
   useEffect(() => {
@@ -66,38 +67,43 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
   // Function to load term sheet data
   const loadTermSheetData = async () => {
     if (!data || !data.id) return;
-  
+
     setIsLoading(true);
     setError(null);
-  
+
     try {
-      // Try to get existing term sheet data
-      const result = await termSheetService.getByOpportunityId(data.id);
-  
+      // Use the GHL ID to fetch term sheet data
+      const ghl_id = data.ghl_id || data.id;
+      const result = await termSheetService.getByOpportunityId(ghl_id);
+
       if (result.success) {
         // We found term data, load it and convert snake_case to camelCase
         const apiData = result.data;
         setTermSheetData({
-          // REMOVE THE ...termSheetData SPREAD OPERATOR HERE
+          // Map the API response data to our form fields
           borrower: apiData.borrower || "",
-          property_address: apiData.property_address || "",
           propertyAddress: apiData.property_address || "",
+          property_address: apiData.property_address || "", // Keep both formats for compatibility
+
           loanPurpose: apiData.loan_purpose || "",
           loanAmount: apiData.loan_amount || "",
           loanToValue: apiData.loan_to_value || "",
           asIsValue: apiData.as_is_value || "",
           rehabCost: apiData.rehab_cost || "",
           afterRepairedValue: apiData.after_repaired_value || "",
+
           loanType: apiData.loan_type || "",
-          loan_type: apiData.loan_type || "",
+          loan_type: apiData.loan_type || "", // Keep both formats for compatibility
           interestRate: apiData.interest_rate || "",
           monthlyPayment: apiData.monthly_payment || "",
           prePaymentPenalty: apiData.prepayment_penalty || "",
+
           originationCost: apiData.origination_cost || "",
           lenderFee: apiData.lender_fee || "",
           processingFee: apiData.processing_fee || "",
           cashToBorrower: apiData.cash_to_from_borrower || "",
           additionalLiquidity: apiData.additional_liquidity || "N/A",
+
           propertyType: apiData.property_type || "",
           ficoScore: apiData.fico_score || "",
           fairMarketRent: apiData.fair_market_rent || "",
@@ -105,27 +111,40 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
           bankruptcyIn3Yrs: apiData.bankruptcy_last_3yrs || "",
           foreclosuresIn3Yrs: apiData.foreclosures_last_3yrs || "",
           feloniesOrCrimes: apiData.felonies_crimes || "",
+
           annualTaxes: apiData.annual_taxes || "",
           annualInsurance: apiData.annual_insurance || "",
           annualFloodInsurance: apiData.annual_flood_insurance || "",
           annualHoaDues: apiData.annual_hoa_dues || "",
           currentDscr: apiData.current_dscr || "",
-          opportunity: apiData.opportunity || data.id,
+
+          // Essential to keep the opportunity ID reference
+          opportunity: apiData.opportunity || ghl_id,
+
+          // Store the ID for PDF generation
+          id: apiData.id,
+
+          // If there's term sheet data with a PDF file, store the URL
+          term_sheet: apiData.term_sheet,
         });
-        setTermSheetId(apiData.id);
       } else {
         // No term data found, initialize with data from the opportunity
         setTermSheetData({
-          // REMOVE THE ...termSheetData SPREAD OPERATOR HERE
-          // Reset all fields to empty
+          // Reset all fields to initial values
           borrower: data.name || "",
-          property_address: data.opportunityName || "",
           propertyAddress: data.opportunityName || "",
-          loan_type: data.loan_type || "",
+          property_address: data.opportunityName || "", // Keep both formats for compatibility
+
           loanType: data.loan_type || "",
-          loan_amount: data.monetaryValue ? data.monetaryValue.toString().replace("$", "") : "",
-          loanAmount: data.monetaryValue ? data.monetaryValue.toString().replace("$", "") : "",
-          opportunity: data.id,
+          loan_type: data.loan_type || "", // Keep both formats for compatibility
+
+          loanAmount: data.monetaryValue
+            ? data.monetaryValue.toString().replace(/^\$/, "")
+            : "",
+
+          // Essential to keep the opportunity ID reference
+          opportunity: ghl_id,
+
           // Set all other fields to empty values
           loanPurpose: "",
           loanToValue: "",
@@ -153,7 +172,6 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
           annualHoaDues: "",
           currentDscr: "",
         });
-        setTermSheetId(null);
       }
     } catch (error) {
       setError("Failed to load term sheet data.");
@@ -178,6 +196,9 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
     setSuccess(null);
 
     try {
+      // Get the GHL ID from the data object
+      const ghl_id = data.ghl_id || data.id;
+
       // Convert camelCase to snake_case for API and handle null values
       const convertedData = {
         borrower: termSheetData.borrower || "",
@@ -211,35 +232,21 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
         current_dscr: termSheetData.currentDscr || "0",
         foreclosures_last_3yrs: termSheetData.foreclosuresIn3Yrs || "",
         felonies_crimes: termSheetData.feloniesOrCrimes || "",
-        opportunity: data.id,
+        opportunity: ghl_id,
       };
 
-      console.log("Saving data to API:", convertedData);
-
-      let result;
-      if (termSheetId) {
-        // Update existing term data
-        result = await termSheetService.updateTermSheet(
-          termSheetId,
-          convertedData
-        );
-      } else {
-        // Create new term data
-        result = await termSheetService.createTermSheet(convertedData);
-      }
+      // Use the service to save the term sheet
+      const result = await termSheetService.createTermSheet(convertedData);
 
       if (result.success) {
-        // Save was successful
-        setSuccess(
-          termSheetId
-            ? "Term sheet updated successfully!"
-            : "Term sheet created successfully!"
-        );
+        // Save was successful - update the state with the new data including ID
+        setTermSheetData((prevData) => ({
+          ...prevData,
+          id: result.data.id,
+          term_sheet: result.data.term_sheet || null,
+        }));
 
-        // If we created a new term sheet, store its ID
-        if (!termSheetId && result.data && result.data.id) {
-          setTermSheetId(result.data.id);
-        }
+        setSuccess("Term sheet saved successfully!");
       } else {
         setError(result.message || "Failed to save term sheet.");
       }
@@ -253,7 +260,8 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
 
   // Handle generate PDF button click
   const handleGeneratePdf = async () => {
-    if (!termSheetId) {
+    // Check if we have the term sheet ID (either from loaded data or from a recent save)
+    if (!termSheetData.id) {
       setError("Please save the term sheet before generating a PDF.");
       return;
     }
@@ -263,12 +271,30 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
     setSuccess(null);
 
     try {
-      const result = await termSheetService.generatePdf(termSheetId);
-
-      if (result.success) {
-        setSuccess("PDF generated successfully!");
+      // If we already have a term sheet with a PDF file, open it directly
+      if (termSheetData.term_sheet && termSheetData.term_sheet.pdf_file) {
+        window.open(termSheetData.term_sheet.pdf_file, "_blank");
+        setSuccess("PDF opened successfully!");
       } else {
-        setError(result.message || "Failed to generate PDF.");
+        // Otherwise generate a new PDF
+        const result = await termSheetService.generatePdf(termSheetData.id);
+
+        if (result.success) {
+          // If there's a new PDF URL, store it in the state
+          if (result.data && result.data.pdf_url) {
+            setTermSheetData((prevData) => ({
+              ...prevData,
+              term_sheet: {
+                ...prevData.term_sheet,
+                pdf_file: result.data.pdf_url,
+              },
+            }));
+          }
+
+          setSuccess("PDF generated successfully!");
+        } else {
+          setError(result.message || "Failed to generate PDF.");
+        }
       }
     } catch (error) {
       setError("An unexpected error occurred while generating PDF.");
@@ -307,10 +333,9 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
           </div>
         )}
 
-        {/* Form fields - Keep your existing form fields but add "disabled={isLoading || isSaving}" */}
+        {/* Form fields */}
         <div className="modal-content">
-          {/* Your existing form fields would go here */}
-          {/* Example of one section: */}
+          {/* Deal Info Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-custom mb-3 pb-1 border-b border-custom">
               Deal Info
@@ -335,9 +360,10 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                 <input
                   type="text"
                   value={termSheetData.property_address || ""}
-                  onChange={(e) =>
-                    handleInputChange("property_address", e.target.value)
-                  }
+                  onChange={(e) => {
+                    handleInputChange("property_address", e.target.value);
+                    handleInputChange("propertyAddress", e.target.value);
+                  }}
                   className="modal-input"
                   disabled={isLoading || isSaving || isGeneratingPdf}
                 />
@@ -361,6 +387,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="e.g., Fix&Flip, Purchase, Refinance"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -375,6 +402,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -387,6 +415,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -401,6 +430,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -413,6 +443,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="%"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -427,6 +458,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
             </div>
@@ -443,10 +475,12 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                 <input
                   type="text"
                   value={termSheetData.loanType}
-                  onChange={(e) =>
-                    handleInputChange("loanType", e.target.value)
-                  }
+                  onChange={(e) => {
+                    handleInputChange("loanType", e.target.value);
+                    handleInputChange("loan_type", e.target.value);
+                  }}
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -459,6 +493,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="%"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -473,6 +508,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -486,6 +522,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("prePaymentPenalty", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
             </div>
@@ -509,6 +546,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -523,6 +561,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -535,6 +574,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -548,6 +588,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("additionalLiquidity", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -560,6 +601,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
             </div>
@@ -585,6 +627,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("propertyType", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -597,6 +640,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -608,6 +652,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("ficoScore", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -622,6 +667,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -636,6 +682,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -650,6 +697,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -663,6 +711,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("propertyDesignation", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -677,6 +726,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                   }
                   className="modal-input"
                   placeholder="$"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -690,6 +740,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("bankruptcyIn3Yrs", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -701,6 +752,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("currentDscr", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
               <div>
@@ -714,6 +766,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                     handleInputChange("foreclosuresIn3Yrs", e.target.value)
                   }
                   className="modal-input"
+                  disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
             </div>
@@ -728,6 +781,7 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
                 handleInputChange("feloniesOrCrimes", e.target.value)
               }
               className="modal-input"
+              disabled={isLoading || isSaving || isGeneratingPdf}
             />
           </div>
 
@@ -763,7 +817,9 @@ const TermSheetModal = ({ isOpen, onClose, data, onSave, onGeneratePdf }) => {
           <button
             onClick={handleGeneratePdf}
             className="btn-base bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700"
-            disabled={isLoading || isSaving || isGeneratingPdf || !termSheetId}
+            disabled={
+              isLoading || isSaving || isGeneratingPdf || !termSheetData.id
+            }
           >
             {isGeneratingPdf ? (
               <span className="flex items-center">
