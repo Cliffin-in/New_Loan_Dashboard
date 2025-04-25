@@ -1,7 +1,33 @@
 // services/termSheetService.js
 import axios from 'axios';
 
-const API_BASE_URL = 'https://link.kicknsaas.com/api';
+// Base API URL - will be used for all requests
+// In production, this should point directly to the API
+// In development, you may need to use a proxy
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? '/api' // Use relative URL that will be handled by your proxy in development
+  : 'https://link.kicknsaas.com/api';
+
+// Create an instance of axios with default configuration
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Setup response interceptor for better error handling
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('API request failed:', error.message);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const termSheetService = {
   // Get term sheet data by opportunity ID (using GHL ID)
@@ -11,7 +37,7 @@ export const termSheetService = {
       
       // Direct request using the exact URL format with trailing slash
       try {
-        const directResponse = await axios.get(`${API_BASE_URL}/termdata/${opportunityId}/`);
+        const directResponse = await apiClient.get(`/termdata/${opportunityId}/`);
         
         if (directResponse.data) {
           console.log("Found term sheet data:", directResponse.data);
@@ -21,34 +47,47 @@ export const termSheetService = {
           };
         }
       } catch (directError) {
-        console.error("Direct fetch error:", directError.message);
-        
-        // Fallback to filter approach if direct approach fails
-        try {
-          console.log("Trying alternate approach with filter query");
-          const queryResponse = await axios.get(`${API_BASE_URL}/termdata/?opportunity=${opportunityId}`);
+        // If it's a 404 error, it means no term sheet exists - that's expected
+        if (directError.response && directError.response.status === 404) {
+          console.log("No term sheet found with direct approach (404)");
           
-          // Check if we have data for this opportunity
-          if (queryResponse.data.results && queryResponse.data.results.length > 0) {
-            console.log("Found term sheet data via filter:", queryResponse.data.results[0]);
-            return {
-              success: true,
-              data: queryResponse.data.results[0], // Return the first matching term sheet
-            };
-          } else {
-            console.log("No term sheet data found for this opportunity");
+          // Try the filter approach
+          try {
+            console.log("Trying alternate approach with filter query");
+            const queryResponse = await apiClient.get(`/termdata/?opportunity=${opportunityId}`);
+            
+            // Check if we have data for this opportunity
+            if (queryResponse.data.results && queryResponse.data.results.length > 0) {
+              console.log("Found term sheet data via filter:", queryResponse.data.results[0]);
+              return {
+                success: true,
+                data: queryResponse.data.results[0], // Return the first matching term sheet
+              };
+            } else {
+              // No term sheet data found via filter either
+              console.log("No term sheet data found for this opportunity");
+              return {
+                success: false,
+                message: 'No term sheet data found for this opportunity.',
+                notFound: true // Add flag to indicate data not found (vs. error)
+              };
+            }
+          } catch (queryError) {
+            // Filter approach also failed
+            console.error("Filter query error:", queryError.message);
             return {
               success: false,
-              message: 'No term sheet data found for this opportunity.',
+              message: 'No term sheet data found and filter query failed.',
+              notFound: true
             };
           }
-        } catch (queryError) {
-          console.error("Filter query error:", queryError.message);
-          console.error("Full error details:", queryError.response || queryError);
+        } else {
+          // Not a 404 error - might be network, server error, etc.
+          console.error("Direct fetch error (not 404):", directError.message);
           return {
             success: false,
-            message: 'Failed to fetch term sheet data.',
-            error: queryError,
+            message: 'Failed to fetch term sheet data: ' + directError.message,
+            error: directError
           };
         }
       }
@@ -61,10 +100,11 @@ export const termSheetService = {
       };
     }
     
-    // If we reach here, no data was found
+    // If we reach here somehow, no data was found
     return {
       success: false,
       message: 'No term sheet data found for this opportunity.',
+      notFound: true
     };
   },
 
@@ -81,17 +121,19 @@ export const termSheetService = {
         console.log("Using provided opportunity ID:", opportunityId);
       }
       
+      // Ensure opportunityId is a string
+      opportunityId = String(opportunityId);
+      
       // Use opportunityId directly in the API paths
       termSheetData.opportunity = opportunityId;
       
       console.log("Saving data to API:", termSheetData);
-      console.log("API URL for checking existing:", `${API_BASE_URL}/termdata/${opportunityId}/`);
       
       // First check if a term sheet already exists for this opportunity
       let existingData;
       try {
         // Try to get existing term sheet data directly with the specified URL format (with trailing slash)
-        const existingResponse = await axios.get(`${API_BASE_URL}/termdata/${opportunityId}/`);
+        const existingResponse = await apiClient.get(`/termdata/${opportunityId}/`);
         existingData = {
           success: true,
           data: existingResponse.data
@@ -106,8 +148,8 @@ export const termSheetService = {
         console.log("Updating existing term sheet with opportunity ID:", opportunityId);
         
         // Use the exact URL format you specified for PUT requests WITH trailing slash
-        const updateResponse = await axios.put(
-          `${API_BASE_URL}/termdata/${opportunityId}/`, 
+        const updateResponse = await apiClient.put(
+          `/termdata/${opportunityId}/`, 
           termSheetData
         );
         
@@ -122,7 +164,7 @@ export const termSheetService = {
       // If it doesn't exist, create it with POST
       else {
         console.log("Creating new term sheet");
-        const createResponse = await axios.post(`${API_BASE_URL}/termdata/`, termSheetData);
+        const createResponse = await apiClient.post(`/termdata/`, termSheetData);
         
         console.log("Create response:", createResponse.data);
         return {
@@ -148,8 +190,11 @@ export const termSheetService = {
     try {
       console.log("Generating PDF for opportunity ID:", opportunityId);
       
+      // Ensure opportunityId is a string
+      opportunityId = String(opportunityId);
+      
       // Send a blank POST request to the PDF generation endpoint
-      const response = await axios.post(`${API_BASE_URL}/termdata/${opportunityId}/generate_pdf/`);
+      const response = await apiClient.post(`/termdata/${opportunityId}/generate_pdf/`);
       
       console.log("PDF generation response:", response.data);
       

@@ -4,11 +4,12 @@ import { pdfService } from "./services/pdfService";
 import axios from "axios";
 
 const TermSheetModal = ({ isOpen, onClose, data }) => {
-  const [termSheetData, setTermSheetData] = useState({
+  // Change this from a constant to a function
+  const getDefaultTermSheetData = () => ({
     // Deal Info
     borrower: "",
     propertyAddress: "",
-    property_address: "", // Keep both formats for compatibility
+    property_address: "",
 
     // Deal Structure
     loanPurpose: "",
@@ -20,7 +21,7 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
 
     // Loan Terms
     loanType: "",
-    loan_type: "", // Keep both formats for compatibility
+    loan_type: "",
     interestRate: "",
     monthlyPayment: "",
     prePaymentPenalty: "",
@@ -47,12 +48,17 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
     annualFloodInsurance: "",
     annualHoaDues: "",
     currentDscr: "",
+
+    // Opportunity reference
+    opportunity: "",
   });
+
+  const [termSheetData, setTermSheetData] = useState(getDefaultTermSheetData());
 
   // Reference to store original data for comparison
   const originalDataRef = useRef({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -62,16 +68,21 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
   // Load term sheet data when modal opens
   useEffect(() => {
     if (isOpen && data) {
-      // Clear any previous error or success messages
+      // Reset everything to defaults first
+      setTermSheetData(getDefaultTermSheetData());
       setError(null);
       setSuccess(null);
-      // Initially set to false - we'll detect if there are actual changes later
       setHasUnsavedChanges(false);
+      setFormTouched(false);
+
+      // Then load data
       loadTermSheetData();
     }
   }, [isOpen, data?.id]);
 
   // Function to load term sheet data
+  // In your loadTermSheetData function:
+
   const loadTermSheetData = async () => {
     if (!data || !data.id) return;
 
@@ -79,28 +90,60 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
     setError(null);
 
     try {
+      // Start with truly empty defaults
+      const emptyDefaults = getDefaultTermSheetData();
+
+      // Get the basic information from the opportunity data for initialization
+      const basicData = {
+        ...emptyDefaults, // Start with empty defaults
+
+        // Only set these specific fields from the opportunity data
+        borrower: data.name || "",
+        propertyAddress: data.opportunityName || "",
+        property_address: data.opportunityName || "",
+        loanAmount: data.monetaryValue
+          ? data.monetaryValue.toString().replace(/^\$/, "")
+          : "",
+        loanType: data.loan_type || "",
+        loan_type: data.loan_type || "",
+        opportunity: data.ghl_id || data.id,
+      };
+
       // Use the GHL ID to fetch term sheet data
       const ghl_id = data.ghl_id || data.id;
+      console.log("Fetching term sheet data for GHL ID:", ghl_id);
       const result = await termSheetService.getByOpportunityId(ghl_id);
+      console.log("API result:", result);
 
-      if (result.success) {
+      if (result.success && result.data) {
         // We found term data, load it and convert snake_case to camelCase
         const apiData = result.data;
+        console.log("Retrieved API data:", apiData);
+
         const loadedData = {
+          // Start with default empty values for all fields
+          ...emptyDefaults,
+
           // Map the API response data to our form fields
-          borrower: apiData.borrower || "",
-          propertyAddress: apiData.property_address || "",
-          property_address: apiData.property_address || "", // Keep both formats for compatibility
+          borrower: apiData.borrower || data.name || "",
+          propertyAddress:
+            apiData.property_address || data.opportunityName || "",
+          property_address:
+            apiData.property_address || data.opportunityName || "",
 
           loanPurpose: apiData.loan_purpose || "",
-          loanAmount: apiData.loan_amount || "",
+          loanAmount:
+            apiData.loan_amount ||
+            (data.monetaryValue
+              ? data.monetaryValue.toString().replace(/^\$/, "")
+              : ""),
           loanToValue: apiData.loan_to_value || "",
           asIsValue: apiData.as_is_value || "",
           rehabCost: apiData.rehab_cost || "",
           afterRepairedValue: apiData.after_repaired_value || "",
 
-          loanType: apiData.loan_type || "",
-          loan_type: apiData.loan_type || "", // Keep both formats for compatibility
+          loanType: apiData.loan_type || data.loan_type || "",
+          loan_type: apiData.loan_type || data.loan_type || "",
           interestRate: apiData.interest_rate || "",
           monthlyPayment: apiData.monthly_payment || "",
           prePaymentPenalty: apiData.prepayment_penalty || "",
@@ -134,63 +177,42 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
           // If there's term sheet data with a PDF file, store the URL
           term_sheet: apiData.term_sheet,
         };
-        
+
         setTermSheetData(loadedData);
         // Store original data for comparison to detect changes
         originalDataRef.current = JSON.parse(JSON.stringify(loadedData));
+        console.log("Term sheet data loaded successfully:", loadedData);
       } else {
         // No term data found, initialize with data from the opportunity
-        const initialData = {
-          // Reset all fields to initial values
-          borrower: data.name || "",
-          propertyAddress: data.opportunityName || "",
-          property_address: data.opportunityName || "", // Keep both formats for compatibility
+        console.log(
+          "No term sheet data found. Using basic opportunity data:",
+          basicData
+        );
+        setTermSheetData(basicData);
 
-          loanType: data.loan_type || "",
-          loan_type: data.loan_type || "", // Keep both formats for compatibility
-
-          loanAmount: data.monetaryValue
-            ? data.monetaryValue.toString().replace(/^\$/, "")
-            : "",
-
-          // Essential to keep the opportunity ID reference
-          opportunity: ghl_id,
-
-          // Set all other fields to empty values
-          loanPurpose: "",
-          loanToValue: "",
-          asIsValue: "",
-          rehabCost: "",
-          afterRepairedValue: "",
-          interestRate: "",
-          monthlyPayment: "",
-          prePaymentPenalty: "",
-          originationCost: "",
-          lenderFee: "",
-          processingFee: "",
-          cashToBorrower: "",
-          additionalLiquidity: "N/A",
-          propertyType: "",
-          ficoScore: "",
-          fairMarketRent: "",
-          propertyDesignation: "",
-          bankruptcyIn3Yrs: "",
-          foreclosuresIn3Yrs: "",
-          feloniesOrCrimes: "",
-          annualTaxes: "",
-          annualInsurance: "",
-          annualFloodInsurance: "",
-          annualHoaDues: "",
-          currentDscr: "",
-        };
-        
-        setTermSheetData(initialData);
         // Store original data for comparison to detect changes
-        originalDataRef.current = JSON.parse(JSON.stringify(initialData));
+        originalDataRef.current = JSON.parse(JSON.stringify(basicData));
       }
     } catch (error) {
+      console.error("Error loading term sheet data:", error);
       setError("Failed to load term sheet data.");
-      console.error(error);
+
+      // In case of error, initialize with basic data
+      const basicData = {
+        ...getDefaultTermSheetData(), // Use the function for clean defaults
+        borrower: data.name || "",
+        propertyAddress: data.opportunityName || "",
+        property_address: data.opportunityName || "",
+        loanAmount: data.monetaryValue
+          ? data.monetaryValue.toString().replace(/^\$/, "")
+          : "",
+        loanType: data.loan_type || "",
+        loan_type: data.loan_type || "",
+        opportunity: data.ghl_id || data.id,
+      };
+
+      setTermSheetData(basicData);
+      originalDataRef.current = JSON.parse(JSON.stringify(basicData));
     } finally {
       setIsLoading(false);
     }
@@ -199,29 +221,23 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
   // Track if any changes have been made to the form
   const [formTouched, setFormTouched] = useState(false);
 
-  // Update original data reference after loading
-  useEffect(() => {
-    if (!isLoading && termSheetData) {
-      originalDataRef.current = JSON.parse(JSON.stringify(termSheetData));
-    }
-  }, [isLoading, termSheetData]);
-
   // Handle form input changes
   const handleInputChange = (field, value) => {
     setFormTouched(true);
-    
+
     setTermSheetData({
       ...termSheetData,
       [field]: value,
     });
-    
+
     // Compare with original data to detect actual changes
     const updatedData = {
       ...termSheetData,
       [field]: value,
     };
-    
-    const hasChanges = JSON.stringify(updatedData) !== JSON.stringify(originalDataRef.current);
+
+    const hasChanges =
+      JSON.stringify(updatedData) !== JSON.stringify(originalDataRef.current);
     setHasUnsavedChanges(hasChanges);
   };
 
@@ -283,16 +299,18 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
         }));
 
         // Update original data reference to match current state
-        originalDataRef.current = JSON.parse(JSON.stringify({
-          ...termSheetData,
-          id: result.data.id,
-          term_sheet: result.data.term_sheet || null,
-        }));
-        
+        originalDataRef.current = JSON.parse(
+          JSON.stringify({
+            ...termSheetData,
+            id: result.data.id,
+            term_sheet: result.data.term_sheet || null,
+          })
+        );
+
         // Mark as saved - reset both flags
         setHasUnsavedChanges(false);
         setFormTouched(true); // Form has been touched, but no unsaved changes
-        
+
         setSuccess("Term sheet saved successfully!");
       } else {
         setError(result.message || "Failed to save term sheet.");
@@ -312,63 +330,63 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
       setError("UNSAVED CHANGES - PLEASE SAVE");
       return;
     }
-    
-    // If form hasn't been touched at all
-    if (!formTouched) {
-      setError("NO CHANGES FOUND ON DATA");
-      return;
-    }
-    
+
     // Get the opportunity ID - ensure it's a string, not an object
     let opportunityId = "";
-    
+
     // Try to get opportunity ID from termSheetData first
-    if (typeof termSheetData.opportunity === 'string') {
+    if (typeof termSheetData.opportunity === "string") {
       opportunityId = termSheetData.opportunity;
-    } 
+    }
     // If it's an object, try to get the id from it
-    else if (typeof termSheetData.opportunity === 'object' && termSheetData.opportunity) {
-      opportunityId = termSheetData.opportunity.id || termSheetData.opportunity.ghl_id || "";
+    else if (
+      typeof termSheetData.opportunity === "object" &&
+      termSheetData.opportunity
+    ) {
+      opportunityId =
+        termSheetData.opportunity.id || termSheetData.opportunity.ghl_id || "";
     }
     // Fallback to data object if needed
     else {
       opportunityId = data.ghl_id || data.id || "";
     }
-    
+
     // Ensure opportunityId is actually a string value
-    if (!opportunityId || typeof opportunityId !== 'string') {
+    if (!opportunityId || typeof opportunityId !== "string") {
       setError("Invalid opportunity ID for PDF generation.");
       console.error("Invalid opportunity ID:", opportunityId);
       return;
     }
 
     console.log("Using opportunity ID for PDF generation:", opportunityId);
-    
+
+    // If form hasn't been touched or saved yet, you need to save first
+    if (!formTouched || !termSheetData.id) {
+      setError("Please save the term sheet first before generating a PDF.");
+      return;
+    }
+
     setIsGeneratingPdf(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // Always use the direct API endpoint for PDF generation with the string ID
-      const pdfEndpoint = `https://link.kicknsaas.com/api/termdata/${opportunityId}/generate_pdf/`;
-      console.log(`Sending PDF generation request to: ${pdfEndpoint}`);
-      
-      const result = await axios.post(pdfEndpoint);
+      // Use the termSheetService instead of direct API call to handle CORS properly
+      const result = await termSheetService.generatePdf(opportunityId);
       console.log("PDF generation response:", result);
 
-      if (result.data) {
-        // If there's a PDF URL returned, open it in a new tab
-        if (result.data.pdf_url) {
-          window.open(result.data.pdf_url, '_blank');
-        }
-        
+      if (result.success) {
         setSuccess("PDF generated successfully!");
       } else {
-        setError("Failed to generate PDF.");
+        setError(result.message || "Failed to generate PDF.");
       }
     } catch (error) {
       console.error("PDF generation error:", error);
-      setError(`Error generating PDF: ${error.response?.data?.message || error.message}`);
+      setError(
+        `Error generating PDF: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -402,7 +420,7 @@ const TermSheetModal = ({ isOpen, onClose, data }) => {
             {success}
           </div>
         )}
-        
+
         {/* Removed the unsaved changes indicator from here as it's now handled by the error message */}
 
         {/* Form fields */}
