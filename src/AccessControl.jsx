@@ -37,6 +37,7 @@ const authorizedUsers = {
   'byron@teksupport.io': ACCESS_LEVELS.ADMIN,
   'mycrm@innostak.com': ACCESS_LEVELS.ADMIN,
   'jeff@innostak.com': ACCESS_LEVELS.ADMIN,
+  'kirk@themakerycompany.com': ACCESS_LEVELS.ADMIN,
 
   'nicole@lfglending.com': ACCESS_LEVELS.VIEWER,
   'Kat@lfglending.com': ACCESS_LEVELS.VIEWER,
@@ -47,7 +48,6 @@ const authorizedUsers = {
   'Dan@lfglending.com': ACCESS_LEVELS.VIEWER,
   'david@lfglending.com': ACCESS_LEVELS.VIEWER,
   'Dawn@lfglending.com': ACCESS_LEVELS.VIEWER,
-  'kirk@themakerycompany.com': ACCESS_LEVELS.VIEWER,
   // Add more users here
 };
 
