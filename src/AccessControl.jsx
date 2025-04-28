@@ -38,6 +38,7 @@ const authorizedUsers = {
   'mycrm@innostak.com': ACCESS_LEVELS.ADMIN,
   'jeff@innostak.com': ACCESS_LEVELS.ADMIN,
   'kirk@themakerycompany.com': ACCESS_LEVELS.ADMIN,
+  'joe@lfglending.com': ACCESS_LEVELS.ADMIN,
 
   'nicole@lfglending.com': ACCESS_LEVELS.VIEWER,
   'Kat@lfglending.com': ACCESS_LEVELS.VIEWER,
