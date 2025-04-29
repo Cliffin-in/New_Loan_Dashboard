@@ -1171,23 +1171,29 @@ const LoanDashboard = () => {
                   <SortableHeader field="name">Name</SortableHeader>
                 </th>
                 <th className="sticky left-[200px] z-30 bg-custom px-6 py-3 text-left text-custom font-medium border border-custom min-w-[300px]">
-                  Opportunity Name
+                  <SortableHeader field="opportunityName">
+                    Opportunity Name
+                  </SortableHeader>
                 </th>
                 <th className="sticky left-[500px] z-30 bg-custom px-6 py-3 text-left text-custom font-medium border border-custom min-w-[100px]">
                   Actions
                 </th>
                 {/* Remaining headers */}
-                <th className="px-6 py-3  text-left text-custom font-medium border border-custom min-w-[300px]">
-                  Business Name
+                <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[300px]">
+                  <SortableHeader field="businessName">
+                    Business Name
+                  </SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[220px]">
-                  Pipeline
+                  <SortableHeader field="pipeline">Pipeline</SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[200px]">
-                  Pipeline Stage
+                  <SortableHeader field="pipelineStage">
+                    Pipeline Stage
+                  </SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[200px]">
-                  Stage
+                  <SortableHeader field="stage">Stage</SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[250px]">
                   <SortableHeader field="actualClosingDate">
@@ -1202,14 +1208,16 @@ const LoanDashboard = () => {
                     Monetary Value
                   </SortableHeader>
                 </th>
-                <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[170px]">
-                  Assigned User
+                <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[200px]">
+                  <SortableHeader field="assignedUser">
+                    Assigned User
+                  </SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[250px]">
                   <SortableHeader field="followers">Followers</SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[200px]">
-                  Lender
+                  <SortableHeader field="lender">Lender</SortableHeader>
                 </th>
                 <th className="px-6 py-3 text-left text-custom font-medium border border-custom min-w-[460px]">
                   Deal Notes
