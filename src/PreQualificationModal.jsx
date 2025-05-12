@@ -227,15 +227,48 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
         date: formData.date || new Date().toISOString().split("T")[0],
         llc_name: formData.llc_name || "",
         address: formData.address || "",
-        purchase_price: formData.purchase_price || "0",
+        purchase_price: formData.purchase_price ? formData.purchase_price : "0",
         loan_type: formData.loan_type || "",
         loan_term: formData.loan_term || "Months",
-        loan_amount: formData.loan_amount || "0",
+        loan_amount: formData.loan_amount ? formData.loan_amount : "0",
         rate_apr: formData.rate_apr || "Floating",
         occupancy: formData.occupancy || "Months",
         applicant: formData.llc_name || "", // Default to llc_name if not set
         opportunity: opportunityId,
       };
+
+      // Basic validation - ensure we have valid data formats
+      // Convert numeric strings to ensure they're valid numbers
+      if (apiData.purchase_price) {
+        // Remove any currency symbols, commas and normalize format
+        apiData.purchase_price = apiData.purchase_price
+          .toString()
+          .replace(/[$,]/g, "")
+          .trim();
+        // Ensure it's a valid number
+        if (
+          apiData.purchase_price &&
+          isNaN(parseFloat(apiData.purchase_price))
+        ) {
+          setError("Purchase Price must be a valid number");
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      if (apiData.loan_amount) {
+        // Remove any currency symbols, commas and normalize format
+        apiData.loan_amount = apiData.loan_amount
+          .toString()
+          .replace(/[$,]/g, "")
+          .trim();
+        // Ensure it's a valid number
+        if (apiData.loan_amount && isNaN(parseFloat(apiData.loan_amount))) {
+          setError("Loan Amount must be a valid number");
+          setIsSaving(false);
+          return;
+        }
+      }
 
       console.log("Sending data to API:", apiData);
 
@@ -278,7 +311,61 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
       }
     } catch (error) {
       console.error("Error saving pre-qualification:", error);
-      setError("An unexpected error occurred.");
+
+      let errorMessage = "An unexpected error occurred.";
+
+      // More detailed error handling
+      if (error.response) {
+        // Server responded with an error status code
+        console.error("Server error response:", error.response.data);
+
+        if (error.response.status === 400) {
+          // Bad request - try to extract validation errors
+          if (error.response.data) {
+            if (typeof error.response.data === "string") {
+              errorMessage = `Failed to save: ${error.response.data}`;
+            } else if (error.response.data.detail) {
+              errorMessage = `Failed to save: ${error.response.data.detail}`;
+            } else {
+              // Extract field errors if they exist
+              const fieldErrors = [];
+              Object.keys(error.response.data).forEach((key) => {
+                if (Array.isArray(error.response.data[key])) {
+                  fieldErrors.push(
+                    `${key}: ${error.response.data[key].join(", ")}`
+                  );
+                } else {
+                  fieldErrors.push(`${key}: ${error.response.data[key]}`);
+                }
+              });
+
+              if (fieldErrors.length > 0) {
+                errorMessage = `Validation errors: ${fieldErrors.join("; ")}`;
+              } else {
+                errorMessage = "Failed to save: Invalid data provided.";
+              }
+            }
+          }
+        } else if (
+          error.response.status === 401 ||
+          error.response.status === 403
+        ) {
+          errorMessage = "You don't have permission to save this data.";
+        } else if (error.response.status === 404) {
+          errorMessage = "API endpoint not found.";
+        } else if (error.response.status >= 500) {
+          errorMessage = "Server error. Please try again later.";
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage =
+          "No response received from server. Please check your connection.";
+      } else {
+        // Error setting up the request
+        errorMessage = `Request error: ${error.message}`;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsSaving(false);
     }

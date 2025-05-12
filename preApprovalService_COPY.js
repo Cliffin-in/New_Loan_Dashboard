@@ -171,50 +171,6 @@ export const preApprovalService = {
       opportunityId = String(opportunityId);
       preApprovalData.opportunity = opportunityId;
 
-      // Data validation and cleanup
-      // Convert string numbers to actual numbers for API compatibility
-      if (preApprovalData.purchase_price) {
-        try {
-          const cleanedValue = preApprovalData.purchase_price
-            .toString()
-            .replace(/[$,]/g, "")
-            .trim();
-          if (!isNaN(parseFloat(cleanedValue))) {
-            preApprovalData.purchase_price = parseFloat(cleanedValue);
-          }
-        } catch (e) {
-          console.warn("Error parsing purchase_price:", e);
-        }
-      }
-
-      if (preApprovalData.loan_amount) {
-        try {
-          const cleanedValue = preApprovalData.loan_amount
-            .toString()
-            .replace(/[$,]/g, "")
-            .trim();
-          if (!isNaN(parseFloat(cleanedValue))) {
-            preApprovalData.loan_amount = parseFloat(cleanedValue);
-          }
-        } catch (e) {
-          console.warn("Error parsing loan_amount:", e);
-        }
-      }
-
-      if (preApprovalData.rate_apr && preApprovalData.rate_apr !== "Floating") {
-        try {
-          const cleanedValue = preApprovalData.rate_apr
-            .toString()
-            .replace(/[%]/g, "")
-            .trim();
-          if (!isNaN(parseFloat(cleanedValue))) {
-            preApprovalData.rate_apr = parseFloat(cleanedValue);
-          }
-        } catch (e) {
-          console.warn("Error parsing rate_apr:", e);
-        }
-      }
-
       console.log("Saving pre-approval data to API:", preApprovalData);
 
       // First check if a pre-approval already exists
@@ -248,7 +204,7 @@ export const preApprovalService = {
         existingData = { success: false };
       }
 
-      // If pre-approval exists, update it with PATCH instead of PUT
+      // If pre-approval exists, update it with PUT
       if (existingData.success && existingData.data) {
         console.log(
           "Updating existing pre-approval with opportunity ID:",
@@ -258,8 +214,7 @@ export const preApprovalService = {
         // Ensure the ID fields match
         preApprovalData.id = existingData.data.id;
 
-        // Use PATCH instead of PUT for partial updates
-        const updateResponse = await apiClient.patch(
+        const updateResponse = await apiClient.put(
           `/pre-approvals/${opportunityId}/`,
           preApprovalData
         );
@@ -291,46 +246,15 @@ export const preApprovalService = {
       }
     } catch (error) {
       console.error("Error saving pre-approval data:", error.message);
-
-      let errorMessage = "Failed to save pre-approval data.";
-      let errorResponse = null;
-
-      if (error.response) {
-        console.error("Response status:", error.response.status);
-        console.error("Response data:", error.response.data);
-        errorResponse = error.response;
-
-        // Provide more specific error messages based on the response
-        if (error.response.data) {
-          if (typeof error.response.data === "string") {
-            errorMessage = error.response.data;
-          } else if (error.response.data.detail) {
-            errorMessage = error.response.data.detail;
-          } else {
-            // Try to extract field-specific errors
-            const fieldErrors = [];
-            Object.keys(error.response.data).forEach((key) => {
-              if (Array.isArray(error.response.data[key])) {
-                fieldErrors.push(
-                  `${key}: ${error.response.data[key].join(", ")}`
-                );
-              } else {
-                fieldErrors.push(`${key}: ${error.response.data[key]}`);
-              }
-            });
-
-            if (fieldErrors.length > 0) {
-              errorMessage = fieldErrors.join("; ");
-            }
-          }
-        }
-      }
-
+      console.error(
+        "Error details:",
+        error.response?.data || "No response data"
+      );
+      console.error("Request that failed:", error.config);
       return {
         success: false,
-        message: `Failed to save pre-approval data: ${errorMessage}`,
+        message: `Failed to save pre-approval data: ${error.message}`,
         error,
-        errorResponse,
       };
     }
   },
