@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Pencil,
-  Eye,
-  ArrowUpDown,
-  Sun,
-  Moon,
-  FileText,
-  FileCheck,
-} from "lucide-react";
+import { Pencil, Eye, ArrowUpDown, Sun, Moon, FileText } from "lucide-react";
 import { Select } from "./components/ui/select";
 import FilterSelect from "./FilterSelect";
 import DateRangeFilter from "./DateRangeFilter";
@@ -15,7 +7,6 @@ import SearchField from "./SearchField";
 import { useAccess } from "./AccessControl";
 import DatePicker from "react-datepicker";
 import TermSheetModal from "./TermSheetModal";
-import PreQualificationModal from "./PreQualificationModal";
 import "react-datepicker/dist/react-datepicker.css";
 import "./index.css";
 import {
@@ -68,8 +59,6 @@ const LoanDashboard = () => {
 
   const [isTermSheetModalOpen, setIsTermSheetModalOpen] = useState(false);
   const [termSheetData, setTermSheetData] = useState(null);
-  const [isPreQualModalOpen, setIsPreQualModalOpen] = useState(false);
-  const [preQualData, setPreQualData] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -1353,18 +1342,6 @@ const LoanDashboard = () => {
                             <FileText className="w-4 h-4 text-white" />
                           </button>
                         )}
-                        {permissions.canEdit && (
-                          <button
-                            className="p-1.5 bg-gray-800/50 rounded-md hover:bg-[#4f46e5] transition-colors"
-                            onClick={() => {
-                              setPreQualData(row);
-                              setIsPreQualModalOpen(true);
-                            }}
-                            title="Pre-Qualification Letter"
-                          >
-                            <FileCheck className="w-4 h-4 text-white" />
-                          </button>
-                        )}
                       </div>
                     </td>
                     {/* Remaining cells */}
@@ -1716,12 +1693,6 @@ const LoanDashboard = () => {
         isOpen={isTermSheetModalOpen}
         onClose={() => setIsTermSheetModalOpen(false)}
         data={termSheetData}
-      />
-
-      <PreQualificationModal
-        isOpen={isPreQualModalOpen}
-        onClose={() => setIsPreQualModalOpen(false)}
-        data={preQualData}
       />
     </div>
   );
