@@ -20,7 +20,7 @@ const determineEnvironment = () => {
     // Check for specific production domains
     if (
       hostname.includes("kicknsaas.com") ||
-      hostname.includes("lfglending.com")
+      hostname.includes("amplifyapp.com")
     ) {
       return "production";
     }
