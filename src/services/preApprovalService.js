@@ -1,11 +1,47 @@
-// services/preApprovalService.js
+// services/preApprovalService.js - Fixed PDF Generation
 import axios from "axios";
 
-// Base API URL
+// Improved environment detection
+const determineEnvironment = () => {
+  // Check if window.location exists (browser environment)
+  if (typeof window !== "undefined" && window.location) {
+    const hostname = window.location.hostname;
+
+    // Check if we're on localhost or a development IP
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.startsWith("192.168.") ||
+      hostname.includes(".local")
+    ) {
+      return "development";
+    }
+
+    // Check for specific production domains
+    if (
+      hostname.includes("kicknsaas.com") ||
+      hostname.includes("lfglending.com")
+    ) {
+      return "production";
+    }
+
+    // Default to production for any other hostname
+    return "production";
+  }
+
+  // Node.js environment - use NODE_ENV
+  return process.env.NODE_ENV || "development";
+};
+
+// Set API base URL based on environment
+const environment = determineEnvironment();
 const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "/api" // Use relative URL for development proxy
-    : "https://link.kicknsaas.com/api";
+  environment === "development"
+    ? "/api" // Development - use relative URL for proxy
+    : "https://link.kicknsaas.com/api"; // Production
+
+console.log(`Application running in ${environment} environment`);
+console.log(`Using API base URL: ${API_BASE_URL}`);
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
@@ -34,101 +70,104 @@ export const preApprovalService = {
     try {
       console.log("Fetching pre-approval for opportunity ID:", opportunityId);
 
-      // First try direct approach with trailing slash
+      if (!opportunityId) {
+        return {
+          success: false,
+          message: "Missing opportunity ID",
+        };
+      }
+
+      // Ensure opportunityId is a string
+      opportunityId = String(opportunityId);
+
+      // Try to get the pre-approval directly using opportunity ID
       try {
-        const directResponse = await apiClient.get(
-          `/pre-approvals/${opportunityId}/`
+        console.log("Fetching pre-approval by opportunity ID");
+        
+        // Add cache buster to prevent caching
+        const timestamp = new Date().getTime();
+        
+        // First try direct record lookup with trailing slash
+        const response = await apiClient.get(
+          `/pre-approvals/${opportunityId}/?nocache=${timestamp}`
         );
 
-        if (directResponse.data) {
-          console.log("Found pre-approval data:", directResponse.data);
+        console.log("Direct API response:", response);
 
-          // Verify this is actually for the correct opportunity
+        // Check if there's a direct data response 
+        // that contains the opportunity ID or ghl_id matching our search
+        if (response.data) {
+          // Check for direct API response containing a single pre-approval object
           if (
-            directResponse.data.opportunity &&
-            String(directResponse.data.opportunity) === String(opportunityId)
+            // If opportunity is a string, check direct match
+            (typeof response.data.opportunity === "string" && 
+              response.data.opportunity === opportunityId) ||
+            // If opportunity is an object, check ghl_id
+            (response.data.opportunity && 
+              response.data.opportunity.ghl_id === opportunityId)
           ) {
+            console.log("Found direct pre-approval match:", response.data);
             return {
               success: true,
-              data: directResponse.data,
-            };
-          } else {
-            console.warn(
-              "Data found but does not match the requested opportunity ID"
-            );
-            return {
-              success: false,
-              message:
-                "No matching pre-approval data found for this opportunity.",
-              notFound: true,
+              data: response.data,
             };
           }
         }
-      } catch (directError) {
-        // If it's a 404 error, try the filter approach
-        if (directError.response && directError.response.status === 404) {
-          console.log("No pre-approval found with direct approach (404)");
 
-          try {
-            console.log("Trying filter approach");
-            const queryResponse = await apiClient.get(
-              `/pre-approvals/?opportunity=${opportunityId}`
+        // If we didn't get a direct match, try the list approach
+        console.log("No direct match found, trying list API...");
+        const listResponse = await apiClient.get(
+          `/pre-approvals/?nocache=${timestamp}`
+        );
+        
+        console.log("List API response:", listResponse);
+        
+        // Check for results in the list endpoint
+        if (
+          listResponse.data &&
+          listResponse.data.results &&
+          listResponse.data.results.length > 0
+        ) {
+          // Look for an exact match in the results
+          let matchingResult = null;
+          
+          // Try first by looking at 'opportunity' field as a string
+          matchingResult = listResponse.data.results.find(
+            (item) => typeof item.opportunity === "string" && 
+                     item.opportunity === opportunityId
+          );
+          
+          // If not found, try looking at opportunity.ghl_id
+          if (!matchingResult) {
+            matchingResult = listResponse.data.results.find(
+              (item) => item.opportunity && 
+                      item.opportunity.ghl_id === opportunityId
             );
+          }
 
-            if (
-              queryResponse.data &&
-              queryResponse.data.results &&
-              queryResponse.data.results.length > 0
-            ) {
-              // Verify the returned data is actually for the requested opportunity
-              const matchingResult = queryResponse.data.results.find(
-                (item) => String(item.opportunity) === String(opportunityId)
-              );
-
-              if (matchingResult) {
-                console.log(
-                  "Found pre-approval data via filter:",
-                  matchingResult
-                );
-                return {
-                  success: true,
-                  data: matchingResult,
-                };
-              } else {
-                console.log(
-                  "Filter returned results but none match the requested opportunity ID"
-                );
-                return {
-                  success: false,
-                  message: "No pre-approval data found for this opportunity.",
-                  notFound: true,
-                };
-              }
-            } else {
-              console.log("No pre-approval data found for this opportunity");
-              return {
-                success: false,
-                message: "No pre-approval data found for this opportunity.",
-                notFound: true,
-              };
-            }
-          } catch (queryError) {
-            console.error("Filter query error:", queryError.message);
+          if (matchingResult) {
+            console.log("Found pre-approval data in list:", matchingResult);
             return {
-              success: false,
-              message: "No pre-approval data found and filter query failed.",
-              notFound: true,
+              success: true,
+              data: matchingResult,
             };
           }
-        } else {
-          console.error("Direct fetch error (not 404):", directError.message);
-          return {
-            success: false,
-            message:
-              "Failed to fetch pre-approval data: " + directError.message,
-            error: directError,
-          };
         }
+
+        console.log("No pre-approval data found for this opportunity");
+        return {
+          success: false,
+          message: "No pre-approval data found for this opportunity.",
+          notFound: true,
+        };
+      } catch (error) {
+        console.error("Error fetching pre-approval:", error.message);
+        return {
+          success: false,
+          message: "Failed to fetch pre-approval data.",
+          error,
+          notFound: true,
+        };
       }
     } catch (error) {
       console.error("Error in getByOpportunityId:", error);
@@ -138,19 +177,12 @@ export const preApprovalService = {
         error,
       };
     }
-
-    // Default return if execution reaches here
-    return {
-      success: false,
-      message: "No pre-approval data found for this opportunity.",
-      notFound: true,
-    };
   },
 
   // Create or update a pre-approval
   createPreApproval: async (preApprovalData) => {
     try {
-      // Ensure opportunity ID is a string
+      // Get the opportunity ID
       let opportunityId;
       if (typeof preApprovalData.opportunity === "object") {
         opportunityId =
@@ -168,98 +200,36 @@ export const preApprovalService = {
         };
       }
 
+      // Convert to string and set in data
       opportunityId = String(opportunityId);
       preApprovalData.opportunity = opportunityId;
 
-      // Data validation and cleanup
-      // Convert string numbers to actual numbers for API compatibility
+      console.log(
+        "Saving pre-approval data for opportunity ID:",
+        opportunityId
+      );
+
+      // Format numeric values properly
       if (preApprovalData.purchase_price) {
-        try {
-          const cleanedValue = preApprovalData.purchase_price
-            .toString()
-            .replace(/[$,]/g, "")
-            .trim();
-          if (!isNaN(parseFloat(cleanedValue))) {
-            preApprovalData.purchase_price = parseFloat(cleanedValue);
-          }
-        } catch (e) {
-          console.warn("Error parsing purchase_price:", e);
-        }
+        preApprovalData.purchase_price = preApprovalData.purchase_price
+          .toString()
+          .replace(/[$,]/g, "")
+          .trim();
       }
 
       if (preApprovalData.loan_amount) {
-        try {
-          const cleanedValue = preApprovalData.loan_amount
-            .toString()
-            .replace(/[$,]/g, "")
-            .trim();
-          if (!isNaN(parseFloat(cleanedValue))) {
-            preApprovalData.loan_amount = parseFloat(cleanedValue);
-          }
-        } catch (e) {
-          console.warn("Error parsing loan_amount:", e);
-        }
+        preApprovalData.loan_amount = preApprovalData.loan_amount
+          .toString()
+          .replace(/[$,]/g, "")
+          .trim();
       }
 
-      if (preApprovalData.rate_apr && preApprovalData.rate_apr !== "Floating") {
-        try {
-          const cleanedValue = preApprovalData.rate_apr
-            .toString()
-            .replace(/[%]/g, "")
-            .trim();
-          if (!isNaN(parseFloat(cleanedValue))) {
-            preApprovalData.rate_apr = parseFloat(cleanedValue);
-          }
-        } catch (e) {
-          console.warn("Error parsing rate_apr:", e);
-        }
-      }
-
-      console.log("Saving pre-approval data to API:", preApprovalData);
-
-      // First check if a pre-approval already exists
-      let existingData;
+      // Try to update directly using the opportunity ID
       try {
-        const existingResponse = await apiClient.get(
-          `/pre-approvals/${opportunityId}/`
-        );
-
-        // Verify the data is actually for this opportunity
-        if (
-          existingResponse.data &&
-          String(existingResponse.data.opportunity) === String(opportunityId)
-        ) {
-          existingData = {
-            success: true,
-            data: existingResponse.data,
-          };
-          console.log("Found existing pre-approval:", existingData.data);
-        } else {
-          console.log(
-            "Found data but it doesn't match the requested opportunity"
-          );
-          existingData = { success: false };
-        }
-      } catch (checkError) {
         console.log(
-          "No existing pre-approval found or error checking:",
-          checkError.message
+          `Updating pre-approval for opportunity ID ${opportunityId}`
         );
-        existingData = { success: false };
-      }
-
-      // If pre-approval exists, update it with PATCH instead of PUT
-      if (existingData.success && existingData.data) {
-        console.log(
-          "Updating existing pre-approval with opportunity ID:",
-          opportunityId
-        );
-
-        // Ensure the ID fields match
-        preApprovalData.id = existingData.data.id;
-
-        // Use PATCH instead of PUT for partial updates
-        const updateResponse = await apiClient.patch(
+        const updateResponse = await apiClient.put(
           `/pre-approvals/${opportunityId}/`,
           preApprovalData
         );
@@ -270,72 +240,80 @@ export const preApprovalService = {
           data: updateResponse.data,
           message: "Pre-approval updated successfully.",
         };
-      }
-      // If it doesn't exist, create it with POST
-      else {
-        console.log(
-          "Creating new pre-approval with opportunity ID:",
-          opportunityId
-        );
-        const createResponse = await apiClient.post(
-          `/pre-approvals/`,
-          preApprovalData
-        );
+      } catch (updateError) {
+        // If update fails (likely 404 Not Found), try to create instead
+        if (updateError.response && updateError.response.status === 404) {
+          console.log("No existing pre-approval found, creating new one");
 
-        console.log("Create response:", createResponse.data);
-        return {
-          success: true,
-          data: createResponse.data,
-          message: "Pre-approval created successfully.",
-        };
-      }
-    } catch (error) {
-      console.error("Error saving pre-approval data:", error.message);
+          try {
+            const createResponse = await apiClient.post(
+              `/pre-approvals/`,
+              preApprovalData
+            );
 
-      let errorMessage = "Failed to save pre-approval data.";
-      let errorResponse = null;
+            console.log("Create response:", createResponse.data);
+            return {
+              success: true,
+              data: createResponse.data,
+              message: "Pre-approval created successfully.",
+            };
+          } catch (createError) {
+            // If creation fails too, handle the error
+            console.error("Error creating pre-approval:", createError.message);
 
-      if (error.response) {
-        console.error("Response status:", error.response.status);
-        console.error("Response data:", error.response.data);
-        errorResponse = error.response;
+            let errorMessage = "Failed to create pre-approval.";
 
-        // Provide more specific error messages based on the response
-        if (error.response.data) {
-          if (typeof error.response.data === "string") {
-            errorMessage = error.response.data;
-          } else if (error.response.data.detail) {
-            errorMessage = error.response.data.detail;
-          } else {
-            // Try to extract field-specific errors
-            const fieldErrors = [];
-            Object.keys(error.response.data).forEach((key) => {
-              if (Array.isArray(error.response.data[key])) {
-                fieldErrors.push(
-                  `${key}: ${error.response.data[key].join(", ")}`
-                );
-              } else {
-                fieldErrors.push(`${key}: ${error.response.data[key]}`);
+            if (createError.response && createError.response.data) {
+              if (typeof createError.response.data === "string") {
+                errorMessage = createError.response.data;
+              } else if (createError.response.data.detail) {
+                errorMessage = createError.response.data.detail;
+              } else if (createError.response.data.opportunity) {
+                errorMessage = createError.response.data.opportunity;
               }
-            });
+            }
 
-            if (fieldErrors.length > 0) {
-              errorMessage = fieldErrors.join("; ");
+            return {
+              success: false,
+              message: errorMessage,
+              error: createError,
+            };
+          }
+        } else {
+          // Some other error occurred during update
+          console.error("Error updating pre-approval:", updateError.message);
+
+          let errorMessage = "Failed to update pre-approval.";
+
+          if (updateError.response && updateError.response.data) {
+            if (typeof updateError.response.data === "string") {
+              errorMessage = updateError.response.data;
+            } else if (updateError.response.data.detail) {
+              errorMessage = updateError.response.data.detail;
+            } else if (updateError.response.data.opportunity) {
+              errorMessage = updateError.response.data.opportunity;
             }
           }
+
+          return {
+            success: false,
+            message: errorMessage,
+            error: updateError,
+          };
         }
       }
-
+    } catch (error) {
+      // General error handling
+      console.error("Error in createPreApproval:", error.message);
       return {
         success: false,
-        message: `Failed to save pre-approval data: ${errorMessage}`,
+        message: `Failed to save pre-approval data: ${error.message}`,
         error,
-        errorResponse,
       };
     }
   },
 
-  // Generate PDF for a pre-approval
+  // Generate PDF for a pre-approval - FIXED TO WORK WITH BACKEND
   generatePdf: async (opportunityId) => {
     try {
       console.log("Generating PDF for opportunity ID:", opportunityId);
@@ -352,9 +330,11 @@ export const preApprovalService = {
       // Ensure opportunityId is a string
       opportunityId = String(opportunityId);
 
-      // Send a blank POST request to the PDF generation endpoint
+      // FIXED: Send a blank POST request with NO URL parameters to the PDF generation endpoint
+      // The backend is expecting the ID in the URL path, not as a query parameter
       const response = await apiClient.post(
-        `/pre-approvals/${opportunityId}/generate_pdf/`
+        `/pre-approvals/${opportunityId}/generate_pdf/`,
+        {} // Empty request body
       );
 
       console.log("PDF generation response:", response.data);

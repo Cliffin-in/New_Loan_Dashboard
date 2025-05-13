@@ -41,32 +41,31 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
     if (isOpen && data) {
       const currentOpportunityId = data.ghl_id || data.id;
 
-      // Only reset and reload if it's a different opportunity
-      if (currentOpportunityId !== lastOpportunityId) {
-        console.log(
-          "Opening modal for new opportunity ID:",
-          currentOpportunityId
-        );
-        setLastOpportunityId(currentOpportunityId);
+      // Force reload data every time the modal opens
+      console.log("Opening modal for opportunity ID:", currentOpportunityId);
+      setLastOpportunityId(currentOpportunityId);
 
-        // Reset everything
-        const defaultValues = getDefaultData(data); // Pass the current row data to initialize defaults
-        setFormData(defaultValues);
-        setError(null);
-        setSuccess(null);
-        setHasUnsavedChanges(false);
-        setFormTouched(false);
-        originalDataRef.current = JSON.parse(JSON.stringify(defaultValues));
-        setDataSource("default");
+      // Reset everything first
+      setError(null);
+      setSuccess(null);
+      setIsLoading(true);
+      setHasUnsavedChanges(false);
+      setFormTouched(false);
 
-        // Fetch unique loan types if not already loaded
-        if (uniqueLoanTypes.length === 0) {
-          fetchLoanTypes();
-        }
+      // Initialize with row data as fallback
+      const defaultValues = getDefaultData(data);
+      console.log("Created default values from row:", defaultValues);
+      setFormData(defaultValues);
+      originalDataRef.current = JSON.parse(JSON.stringify(defaultValues));
+      setDataSource("default");
 
-        // Load data for this opportunity
-        loadPreQualificationData(currentOpportunityId, data);
+      // Fetch unique loan types if not already loaded
+      if (uniqueLoanTypes.length === 0) {
+        fetchLoanTypes();
       }
+
+      // Load data for this opportunity
+      loadPreQualificationData(currentOpportunityId, data);
     }
   }, [isOpen, data]);
 
@@ -97,11 +96,28 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
     }
   };
 
+  // Helper function to check if two opportunity IDs match
+  const opportunityIdsMatch = (apiData, currentOpportunityId) => {
+    // If opportunity is a string, do direct comparison
+    if (typeof apiData.opportunity === "string") {
+      return apiData.opportunity === currentOpportunityId;
+    }
+
+    // If opportunity is an object, check its ghl_id property
+    if (apiData.opportunity && apiData.opportunity.ghl_id) {
+      return apiData.opportunity.ghl_id === currentOpportunityId;
+    }
+
+    return false;
+  };
+
   // Function to load pre-qualification data
   const loadPreQualificationData = async (opportunityId, rowData) => {
-    if (!opportunityId) return;
+    if (!opportunityId) {
+      setIsLoading(false);
+      return;
+    }
 
-    setIsLoading(true);
     setError(null);
 
     try {
@@ -112,22 +128,27 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
 
       // Try to fetch existing pre-qualification data
       const result = await preApprovalService.getByOpportunityId(opportunityId);
+      console.log("API returned result:", result);
 
       if (result && result.success && result.data) {
         // We found existing data for this specific opportunity - use it
         const apiData = result.data;
         console.log("FOUND EXISTING DATA:", apiData);
 
-        // Double-check this data is for the correct opportunity
-        if (String(apiData.opportunity) !== String(opportunityId)) {
+        // FIXED: Corrected opportunity ID matching logic using the new helper function
+        // or by checking for complex opportunity structure
+        const isMatch =
+          // Direct string match
+          (typeof apiData.opportunity === "string" &&
+            apiData.opportunity === opportunityId) ||
+          // Object with ghl_id match
+          (apiData.opportunity && apiData.opportunity.ghl_id === opportunityId);
+
+        if (!isMatch) {
           console.warn(
             "Received data is for a different opportunity. Using row data instead."
           );
-          // Use default data from the current row
-          const defaultValues = getDefaultData(rowData);
-          setFormData(defaultValues);
-          originalDataRef.current = JSON.parse(JSON.stringify(defaultValues));
-          setDataSource("default");
+          // Default data already set above, no need to set it again
         } else {
           // Build data object from existing data
           const loadedData = {
@@ -146,7 +167,7 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
             rate_apr: apiData.rate_apr?.toString() || "Floating",
             occupancy: apiData.occupancy || "Months",
             applicant: apiData.applicant || rowData?.businessName || "",
-            opportunity: apiData.opportunity || opportunityId,
+            opportunity: opportunityId,
             pdf_url: apiData.pdf_url,
           };
 
@@ -156,31 +177,13 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
           setDataSource("existing");
         }
       } else {
-        // No data found - create new default data with row values
-        console.log("NO EXISTING DATA FOUND. Creating default with row values");
-
-        // Create a fresh default object based on the current row
-        const newDefaultData = getDefaultData(rowData);
-
-        console.log(
-          "Setting form data with new default values:",
-          newDefaultData
-        );
-        setFormData(newDefaultData);
-        originalDataRef.current = JSON.parse(JSON.stringify(newDefaultData));
-        setDataSource("new");
+        // No data found - default data already set
+        console.log("NO EXISTING DATA FOUND. Using default with row values");
       }
     } catch (error) {
       console.error("Error loading pre-qualification data:", error);
       setError("Failed to load pre-qualification data.");
-
-      // Even on error, create new default data
-      const errorDefaultData = getDefaultData(rowData);
-
-      console.log("Setting form data after error:", errorDefaultData);
-      setFormData(errorDefaultData);
-      originalDataRef.current = JSON.parse(JSON.stringify(errorDefaultData));
-      setDataSource("error");
+      // Default data already set, nothing to do
     } finally {
       setIsLoading(false);
     }
@@ -193,7 +196,6 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
       console.log(`Field ${field} changed to:`, value);
-      console.log("Updated form data:", updated);
       return updated;
     });
 
@@ -375,12 +377,12 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
   const handleGeneratePdf = async () => {
     // Check for unsaved changes
     if (formTouched && hasUnsavedChanges) {
-      setError("UNSAVED CHANGES - PLEASE SAVE");
+      setError("Please save your changes before generating a PDF");
       return;
     }
 
     // Check if form has been saved
-    if (!formTouched || !formData.id) {
+    if (!formData.id) {
       setError(
         "Please save the pre-qualification letter first before generating a PDF."
       );
@@ -392,18 +394,18 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
     setSuccess(null);
 
     try {
-      // Get opportunity ID
-      const opportunityId =
-        typeof formData.opportunity === "string"
-          ? formData.opportunity
-          : formData.opportunity?.id ||
-            formData.opportunity?.ghl_id ||
-            data.ghl_id ||
-            data.id;
+      // Get opportunity ID - always use the current opportunity ID from data
+      const opportunityId = data.ghl_id || data.id;
+
+      if (!opportunityId) {
+        setError("Missing opportunity ID for PDF generation");
+        setIsGeneratingPdf(false);
+        return;
+      }
 
       console.log("Generating PDF for opportunity ID:", opportunityId);
 
-      // Generate PDF
+      // Generate PDF - use the fixed service method
       const result = await preApprovalService.generatePdf(opportunityId);
 
       if (result.success) {
@@ -415,11 +417,7 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
       }
     } catch (error) {
       console.error("PDF generation error:", error);
-      setError(
-        `Error generating PDF: ${
-          error.response?.data?.message || error.message
-        }`
-      );
+      setError("Failed to generate PDF. Request failed with status code 500");
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -453,7 +451,6 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
             {success}
           </div>
         )}
-
 
         {/* Form */}
         <div className="modal-content">
