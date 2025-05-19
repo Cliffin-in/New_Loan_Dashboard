@@ -19,6 +19,7 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
       rate_apr: "Floating", // Default prefill
       occupancy: "Months", // Default prefill
       applicant: rowData?.businessName || "",
+      assigned_to: rowData?.assignedUser || "", // Use assigned_to instead of assigned_user
       opportunity: rowData?.ghl_id || rowData?.id || "",
     };
   };
@@ -167,6 +168,7 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
             rate_apr: apiData.rate_apr?.toString() || "Floating",
             occupancy: apiData.occupancy || "Months",
             applicant: apiData.applicant || rowData?.businessName || "",
+            assigned_to: apiData.assigned_to || rowData?.assignedUser || "", // Use assigned_to instead of assigned_user
             opportunity: opportunityId,
             pdf_url: apiData.pdf_url,
           };
@@ -236,6 +238,7 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
         rate_apr: formData.rate_apr || "Floating",
         occupancy: formData.occupancy || "Months",
         applicant: formData.llc_name || "", // Default to llc_name if not set
+        assigned_to: formData.assigned_to || "", // Use assigned_to instead of assigned_user
         opportunity: opportunityId,
       };
 
@@ -487,6 +490,20 @@ const PreQualificationModal = ({ isOpen, onClose, data }) => {
                   disabled={isLoading || isSaving || isGeneratingPdf}
                 />
               </div>
+            </div>
+
+            {/* Added Assigned User field */}
+            <div className="mb-4">
+              <label className="block text-custom mb-2">Assigned User</label>
+              <input
+                type="text"
+                value={formData.assigned_to || ""}
+                onChange={(e) =>
+                  handleInputChange("assigned_to", e.target.value)
+                }
+                className="modal-input"
+                disabled={isLoading || isSaving || isGeneratingPdf}
+              />
             </div>
 
             {/* Property Address */}

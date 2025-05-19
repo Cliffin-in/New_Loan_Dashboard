@@ -1,4 +1,4 @@
-// services/preApprovalService.js - Fixed PDF Generation
+// services/preApprovalService.js - Updated with assigned_to support
 import axios from "axios";
 
 // Improved environment detection
@@ -83,10 +83,10 @@ export const preApprovalService = {
       // Try to get the pre-approval directly using opportunity ID
       try {
         console.log("Fetching pre-approval by opportunity ID");
-        
+
         // Add cache buster to prevent caching
         const timestamp = new Date().getTime();
-        
+
         // First try direct record lookup with trailing slash
         const response = await apiClient.get(
           `/pre-approvals/${opportunityId}/?nocache=${timestamp}`
@@ -94,16 +94,16 @@ export const preApprovalService = {
 
         console.log("Direct API response:", response);
 
-        // Check if there's a direct data response 
+        // Check if there's a direct data response
         // that contains the opportunity ID or ghl_id matching our search
         if (response.data) {
           // Check for direct API response containing a single pre-approval object
           if (
             // If opportunity is a string, check direct match
-            (typeof response.data.opportunity === "string" && 
+            (typeof response.data.opportunity === "string" &&
               response.data.opportunity === opportunityId) ||
             // If opportunity is an object, check ghl_id
-            (response.data.opportunity && 
+            (response.data.opportunity &&
               response.data.opportunity.ghl_id === opportunityId)
           ) {
             console.log("Found direct pre-approval match:", response.data);
@@ -119,9 +119,9 @@ export const preApprovalService = {
         const listResponse = await apiClient.get(
           `/pre-approvals/?nocache=${timestamp}`
         );
-        
+
         console.log("List API response:", listResponse);
-        
+
         // Check for results in the list endpoint
         if (
           listResponse.data &&
@@ -130,18 +130,19 @@ export const preApprovalService = {
         ) {
           // Look for an exact match in the results
           let matchingResult = null;
-          
+
           // Try first by looking at 'opportunity' field as a string
           matchingResult = listResponse.data.results.find(
-            (item) => typeof item.opportunity === "string" && 
-                     item.opportunity === opportunityId
+            (item) =>
+              typeof item.opportunity === "string" &&
+              item.opportunity === opportunityId
           );
-          
+
           // If not found, try looking at opportunity.ghl_id
           if (!matchingResult) {
             matchingResult = listResponse.data.results.find(
-              (item) => item.opportunity && 
-                      item.opportunity.ghl_id === opportunityId
+              (item) =>
+                item.opportunity && item.opportunity.ghl_id === opportunityId
             );
           }
 
@@ -179,7 +180,7 @@ export const preApprovalService = {
     }
   },
 
-  // Create or update a pre-approval
+  // Create or update a pre-approval with assigned_to support
   createPreApproval: async (preApprovalData) => {
     try {
       // Get the opportunity ID
@@ -222,6 +223,14 @@ export const preApprovalService = {
           .toString()
           .replace(/[$,]/g, "")
           .trim();
+      }
+
+      // Ensure assigned_to is included in the data
+      if (!preApprovalData.assigned_to) {
+        console.log("No assigned user provided, using empty string");
+        preApprovalData.assigned_to = "";
+      } else {
+        console.log("Assigned user:", preApprovalData.assigned_to);
       }
 
       // Try to update directly using the opportunity ID
@@ -270,6 +279,9 @@ export const preApprovalService = {
                 errorMessage = createError.response.data.detail;
               } else if (createError.response.data.opportunity) {
                 errorMessage = createError.response.data.opportunity;
+              } else if (createError.response.data.assigned_to) {
+                // Handle specific error for assigned_to field
+                errorMessage = `Assigned User: ${createError.response.data.assigned_to}`;
               }
             }
 
@@ -292,6 +304,9 @@ export const preApprovalService = {
               errorMessage = updateError.response.data.detail;
             } else if (updateError.response.data.opportunity) {
               errorMessage = updateError.response.data.opportunity;
+            } else if (updateError.response.data.assigned_to) {
+              // Handle specific error for assigned_to field
+              errorMessage = `Assigned User: ${updateError.response.data.assigned_to}`;
             }
           }
 
